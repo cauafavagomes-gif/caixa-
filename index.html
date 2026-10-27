@@ -177,6 +177,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useMemo, useSyncExternalStore } = React;
@@ -342,14 +343,221 @@ function loadInitial() {
 let state = loadInitial();
 const listeners = new Set();
 function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
   listeners.forEach((l) => l());
+  sincronizar();
 }
 function setState(updater) { state = typeof updater === 'function' ? updater(state) : updater; persist(); }
 function subscribe(cb) { listeners.add(cb); return () => listeners.delete(cb); }
 function getSnapshot() { return state; }
 function useStore() { return useSyncExternalStore(subscribe, getSnapshot); }
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ================= supabase: login + banco de dados ================= */
+const SUPABASE_URL = 'https://cayjqgofarokvzdrsufr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JPts-jGME-FzgrYquQU39g_v-xRjFwX';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let sbLojaId = null, ultimoOk = null, syncRodando = false, syncPendente = false, syncErro = false;
+
+function avisoSync(msg) {
+  let el = document.getElementById('aviso-sync');
+  if (!msg) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'aviso-sync';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#dc2626;color:#fff;font:600 13px sans-serif;text-align:center;padding:8px 12px';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+}
+const checar = (r) => { if (r && r.error) throw r.error; return r; };
+function diffPorId(prev, next) {
+  const pm = new Map(prev.map((x) => [x.id, x]));
+  const nm = new Set(next.map((x) => x.id));
+  return { upserts: next.filter((x) => pm.get(x.id) !== x), removidos: prev.filter((x) => !nm.has(x.id)).map((x) => x.id) };
+}
+async function upsertEmLotes(tabela, linhas) {
+  for (let i = 0; i < linhas.length; i += 400) checar(await sb.from(tabela).upsert(linhas.slice(i, i + 400), { onConflict: 'id' }));
+}
+async function apagarEmLotes(tabela, coluna, ids) {
+  for (let i = 0; i < ids.length; i += 100) checar(await sb.from(tabela).delete().in(coluna, ids.slice(i, i + 100)));
+}
+
+async function enviarDiferencas(prev, next, lojaId) {
+  if (prev.perfil !== next.perfil || prev.metas !== next.metas) {
+    const p = next.perfil || {}; const m = next.metas || {};
+    checar(await sb.from('lojas').update({
+      nome_negocio: p.nomeNegocio || null, ramo: p.ramo || null, cidade: p.cidade || null, telefone: p.telefone || null,
+      chave_pix_recebimento: p.chavePixRecebimento || null, limite_alerta_preco: p.limiteAlertaPreco ?? 5,
+      anexo_simples: p.anexoSimples || null, percentual_reserva_impostos: p.percentualReservaImpostos ?? null,
+      meta_faturamento: Number(m.faturamento) || 0, meta_lucro: Number(m.lucro) || 0,
+    }).eq('id', lojaId));
+  }
+  const colecoes = [
+    ['caixas', 'caixas', (c) => ({ id: c.id, loja_id: lojaId, nome: c.nome, tipo: c.tipo || 'dinheiro' })],
+    ['lancamentos', 'lancamentos', (l) => ({ id: l.id, loja_id: lojaId, caixa_id: l.caixaId || null, data: l.data, hora: l.hora || null, tipo: l.tipo, categoria: l.categoria || null, descricao: l.descricao || '', forma_pagamento: l.formaPagamento || null, valor: Number(l.valor) || 0, origem: l.origem || 'manual', observacoes: l.observacoes || '', conciliado_em: l.conciliadoEm || null, criado_em: l.criadoEm || new Date().toISOString(), editado_em: l.editadoEm || null })],
+    ['contas', 'contas', (c) => ({ id: c.id, loja_id: lojaId, descricao: c.descricao || '', valor: Number(c.valor) || 0, vencimento: c.vencimento, tipo: c.tipo, status: c.status || 'Pendente', recorrente: !!c.recorrente, cliente_nome: c.clienteNome || '', aprovado_por: c.aprovadoPor || null, aprovado_em: c.aprovadoEm || null })],
+    ['custosFixos', 'custos_fixos', (c) => ({ id: c.id, loja_id: lojaId, categoria: c.categoria || null, descricao: c.descricao || '', valor: Number(c.valor) || 0, dia_vencimento: c.diaVencimento || null, chave_pix: c.chavePix || '', ultimo_mes_lancado: c.ultimoMesLancado || null })],
+    ['funcionarios', 'funcionarios', (f) => ({ id: f.id, loja_id: lojaId, nome: f.nome, cargo: f.cargo || '', salario_bruto: Number(f.salarioBruto) || 0, data_admissao: f.dataAdmissao || null, valor_vt: Number(f.valorVT) || 0, valor_vr: Number(f.valorVR) || 0, chave_pix: f.chavePix || '' })],
+  ];
+  const dif = {};
+  for (const [chave, tabela, linha] of colecoes) {
+    dif[chave] = diffPorId(prev[chave] || [], next[chave] || []);
+    if (dif[chave].upserts.length) await upsertEmLotes(tabela, dif[chave].upserts.map(linha));
+  }
+  // cobranças enviadas (dentro de cada conta)
+  const contasAnt = new Map((prev.contas || []).map((c) => [c.id, c]));
+  const contasCob = dif.contas.upserts.filter((c) => (c.cobrancasEnviadas || []).length !== ((contasAnt.get(c.id) || {}).cobrancasEnviadas || []).length);
+  if (contasCob.length) {
+    await apagarEmLotes('cobrancas_enviadas', 'conta_id', contasCob.map((c) => c.id));
+    const linhas = [];
+    contasCob.forEach((c) => (c.cobrancasEnviadas || []).forEach((em) => linhas.push({ loja_id: lojaId, conta_id: c.id, enviada_em: em })));
+    for (let i = 0; i < linhas.length; i += 400) checar(await sb.from('cobrancas_enviadas').insert(linhas.slice(i, i + 400)));
+  }
+  // compras novas e seus itens
+  const idsCompra = new Set((prev.compras || []).map((c) => c.id));
+  const comprasNovas = (next.compras || []).filter((c) => !idsCompra.has(c.id));
+  if (comprasNovas.length) {
+    await upsertEmLotes('compras', comprasNovas.map((c) => ({ id: c.id, loja_id: lojaId, data: c.data, fornecedor: c.fornecedor || '', forma_pagamento: c.formaPagamento || null, foto_url: c.fotoDataUrl || null })));
+    await apagarEmLotes('compra_itens', 'compra_id', comprasNovas.map((c) => c.id));
+    const itens = [];
+    comprasNovas.forEach((c) => (c.itens || []).forEach((it) => itens.push({ loja_id: lojaId, compra_id: c.id, produto: it.produto || '', categoria: it.categoria || null, quantidade: Number(it.quantidade) || 0, valor_unitario: Number(it.valorUnitario) || 0 })));
+    for (let i = 0; i < itens.length; i += 400) checar(await sb.from('compra_itens').insert(itens.slice(i, i + 400)));
+  }
+  // auditoria (só entradas novas)
+  const idsAud = new Set((prev.auditoria || []).map((a) => a.id));
+  const audNovas = (next.auditoria || []).filter((a) => !idsAud.has(a.id));
+  if (audNovas.length) await upsertEmLotes('auditoria', audNovas.map((a) => ({ id: a.id, loja_id: lojaId, lancamento_id: a.lancamentoId || null, acao: a.acao || '', descricao: a.descricao || null, valor: a.valor ?? null, detalhe: a.detalhe || '', em: a.em || new Date().toISOString() })));
+  // exclusões (por último)
+  for (const [chave, tabela] of [['lancamentos', 'lancamentos'], ['contas', 'contas'], ['custosFixos', 'custos_fixos'], ['funcionarios', 'funcionarios'], ['caixas', 'caixas']]) {
+    if (dif[chave].removidos.length) await apagarEmLotes(tabela, 'id', dif[chave].removidos);
+  }
+}
+
+async function sincronizar() {
+  if (!sbLojaId) return;
+  if (syncRodando) { syncPendente = true; return; }
+  syncRodando = true;
+  try {
+    do {
+      syncPendente = false;
+      const alvo = state;
+      if (alvo !== ultimoOk) { await enviarDiferencas(ultimoOk, alvo, sbLojaId); ultimoOk = alvo; }
+    } while (syncPendente);
+    syncErro = false; avisoSync(null);
+  } catch (e) {
+    console.error('Erro ao salvar na nuvem', e);
+    syncErro = true; avisoSync('Não foi possível salvar na nuvem. Verifique a internet; vamos tentar de novo.');
+    setTimeout(sincronizar, 15000);
+  } finally { syncRodando = false; }
+}
+window.addEventListener('online', () => sincronizar());
+async function aguardarSync() {
+  await sincronizar();
+  while (syncRodando) await new Promise((r) => setTimeout(r, 100));
+  return !syncErro;
+}
+
+async function buscarTudo(tabela, lojaId, ordem) {
+  let tudo = [];
+  for (let de = 0; ; de += 1000) {
+    let q = sb.from(tabela).select('*').eq('loja_id', lojaId);
+    ordem.forEach(([col, asc]) => { q = q.order(col, { ascending: asc }); });
+    const { data, error } = await q.range(de, de + 999);
+    if (error) throw error;
+    tudo = tudo.concat(data);
+    if (data.length < 1000) break;
+  }
+  return tudo;
+}
+const num = (v) => (v == null ? 0 : Number(v));
+
+async function carregarDadosRemotos(userId) {
+  let { data: loja, error } = await sb.from('lojas').select('*').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  if (!loja) {
+    const r = await sb.from('lojas').insert({ user_id: userId }).select().single();
+    if (r.error) throw r.error;
+    loja = r.data;
+    checar(await sb.from('caixas').insert({ loja_id: loja.id, nome: 'Caixa da loja', tipo: 'dinheiro' }));
+  }
+  const id = loja.id;
+  const [cx, lc, ct, cob, cp, itens, cf, fn, au] = await Promise.all([
+    buscarTudo('caixas', id, [['criado_em', true], ['id', true]]),
+    buscarTudo('lancamentos', id, [['criado_em', false], ['id', false]]),
+    buscarTudo('contas', id, [['criado_em', true], ['id', true]]),
+    buscarTudo('cobrancas_enviadas', id, [['enviada_em', true], ['id', true]]),
+    buscarTudo('compras', id, [['criado_em', false], ['id', false]]),
+    buscarTudo('compra_itens', id, [['id', true]]),
+    buscarTudo('custos_fixos', id, [['criado_em', true], ['id', true]]),
+    buscarTudo('funcionarios', id, [['criado_em', true], ['id', true]]),
+    sb.from('auditoria').select('*').eq('loja_id', id).order('em', { ascending: false }).limit(500).then((r) => { if (r.error) throw r.error; return r.data; }),
+  ]);
+  const cobPorConta = {}; cob.forEach((x) => { (cobPorConta[x.conta_id] = cobPorConta[x.conta_id] || []).push(x.enviada_em); });
+  const itensPorCompra = {}; itens.forEach((x) => { (itensPorCompra[x.compra_id] = itensPorCompra[x.compra_id] || []).push({ produto: x.produto, categoria: x.categoria || '', quantidade: num(x.quantidade), valorUnitario: num(x.valor_unitario), valorTotal: num(x.valor_total) }); });
+  const novo = {
+    ...seedState(),
+    perfil: loja.nome_negocio ? { nomeNegocio: loja.nome_negocio, ramo: loja.ramo || 'outro', cidade: loja.cidade || '', telefone: loja.telefone || '', chavePixRecebimento: loja.chave_pix_recebimento || '', limiteAlertaPreco: num(loja.limite_alerta_preco) || 5, anexoSimples: loja.anexo_simples || undefined, percentualReservaImpostos: loja.percentual_reserva_impostos == null ? null : Number(loja.percentual_reserva_impostos) } : null,
+    metas: { faturamento: num(loja.meta_faturamento), lucro: num(loja.meta_lucro) },
+    caixas: cx.map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo })),
+    lancamentos: lc.map((l) => ({ id: l.id, data: l.data, hora: (l.hora || '').slice(0, 5), tipo: l.tipo, categoria: l.categoria || '', descricao: l.descricao, formaPagamento: l.forma_pagamento || '', valor: num(l.valor), origem: l.origem, observacoes: l.observacoes || '', caixaId: l.caixa_id, conciliadoEm: l.conciliado_em, criadoEm: l.criado_em, editadoEm: l.editado_em })),
+    contas: ct.map((c) => ({ id: c.id, descricao: c.descricao, valor: num(c.valor), vencimento: c.vencimento, tipo: c.tipo, status: c.status, recorrente: c.recorrente, clienteNome: c.cliente_nome || '', aprovadoPor: c.aprovado_por, aprovadoEm: c.aprovado_em, cobrancasEnviadas: cobPorConta[c.id] || [] })),
+    compras: cp.map((c) => ({ id: c.id, data: c.data, fornecedor: c.fornecedor, formaPagamento: c.forma_pagamento || '', fotoDataUrl: c.foto_url || null, itens: itensPorCompra[c.id] || [] })),
+    custosFixos: cf.map((c) => ({ id: c.id, categoria: c.categoria || '', descricao: c.descricao, valor: num(c.valor), diaVencimento: c.dia_vencimento, chavePix: c.chave_pix || '', ultimoMesLancado: c.ultimo_mes_lancado })),
+    funcionarios: fn.map((f) => ({ id: f.id, nome: f.nome, cargo: f.cargo || '', salarioBruto: num(f.salario_bruto), dataAdmissao: f.data_admissao || '', valorVT: num(f.valor_vt), valorVR: num(f.valor_vr), chavePix: f.chave_pix || '' })),
+    auditoria: au.map((a) => ({ id: a.id, em: a.em, acao: a.acao, lancamentoId: a.lancamento_id, descricao: a.descricao, valor: a.valor == null ? a.valor : Number(a.valor), detalhe: a.detalhe || '' })),
+  };
+  if (!novo.caixas.length) novo.caixas = [{ id: uid(), nome: 'Caixa da loja', tipo: 'dinheiro' }];
+  state = novo; ultimoOk = novo; sbLojaId = id;
+  listeners.forEach((l) => l());
+  if (!cx.length) sincronizar();
+}
+
+function limparSessaoLocal() {
+  sbLojaId = null; ultimoOk = null; state = seedState();
+  listeners.forEach((l) => l()); avisoSync(null);
+}
+async function sairDaConta() { await aguardarSync(); await sb.auth.signOut(); }
+
+// troca ids antigos (não-UUID) por UUIDs, para backups e dados salvos só no aparelho
+function remapIds(d) {
+  const mapa = new Map();
+  const nid = (v) => { if (v == null || v === '' || UUID_RE.test(v)) return v; if (!mapa.has(v)) mapa.set(v, uid()); return mapa.get(v); };
+  const r = {
+    ...d,
+    caixas: (d.caixas || []).map((c) => ({ ...c, id: nid(c.id) })),
+    lancamentos: (d.lancamentos || []).map((l) => ({ ...l, id: nid(l.id), caixaId: nid(l.caixaId) })),
+    contas: (d.contas || []).map((c) => ({ ...c, id: nid(c.id) })),
+    compras: (d.compras || []).map((c) => ({ ...c, id: nid(c.id) })),
+    custosFixos: (d.custosFixos || []).map((c) => ({ ...c, id: nid(c.id) })),
+    funcionarios: (d.funcionarios || []).map((f) => ({ ...f, id: nid(f.id) })),
+    auditoria: (d.auditoria || []).map((a) => ({ ...a, id: nid(a.id), lancamentoId: nid(a.lancamentoId) })),
+  };
+  if (!r.caixas.length) r.caixas = [{ id: uid(), nome: 'Caixa da loja', tipo: 'dinheiro' }];
+  return r;
+}
+
+async function oferecerImportacaoLocal() {
+  try {
+    if (state.perfil || state.lancamentos.length || state.contas.length || state.compras.length) return;
+    if (localStorage.getItem('caixa_facil_import_recusado') === '1') return;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const dados = JSON.parse(raw);
+    const tem = dados && (dados.perfil || (dados.lancamentos || []).length || (dados.contas || []).length || (dados.compras || []).length);
+    if (!tem) return;
+    const nome = dados.perfil && dados.perfil.nomeNegocio ? ' ("' + dados.perfil.nomeNegocio + '")' : '';
+    if (confirm('Encontramos dados salvos só neste aparelho' + nome + '. Deseja enviar para a sua conta?')) {
+      actions.restaurarBackup(dados);
+      if (await aguardarSync()) localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem('caixa_facil_import_recusado', '1');
+    }
+  } catch (e) { console.error(e); }
+}
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16); });
+}
 function hojeISO() { return new Date().toISOString().slice(0, 10); }
 function horaAgora() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 function agoraISO() { return new Date().toISOString(); }
@@ -390,7 +598,7 @@ const actions = {
       };
     });
   },
-  restaurarBackup(dados) { setState(() => ({ ...seedState(), ...dados })); },
+  restaurarBackup(dados) { setState(() => remapIds({ ...seedState(), ...dados })); },
   addFuncionario({ nome, cargo, salarioBruto, dataAdmissao, valorVT, valorVR, chavePix }) {
     const item = { id: uid(), nome: nome.trim(), cargo: (cargo || '').trim(), salarioBruto: Number(salarioBruto) || 0, dataAdmissao, valorVT: Number(valorVT) || 0, valorVR: Number(valorVR) || 0, chavePix: chavePix ? chavePix.trim() : '' };
     setState((s) => ({ ...s, funcionarios: [...s.funcionarios, item] }));
@@ -2635,7 +2843,7 @@ function Configuracoes({ voltar }) {
       try {
         const dados = JSON.parse(reader.result);
         if (!Array.isArray(dados.lancamentos)) throw new Error('formato inválido');
-        if (confirm('Isso vai substituir todos os dados atuais deste aparelho pelos dados do arquivo de backup. Continuar?')) {
+        if (confirm('Isso vai substituir todos os dados atuais deste aparelho pelos dados do arquivo de backup (isso também muda os dados da sua conta). Continuar?')) {
           actions.restaurarBackup(dados);
         }
       } catch {
@@ -2679,8 +2887,105 @@ function Configuracoes({ voltar }) {
         <div className="row"><span>Fixas (aluguel, salário)</span><strong>{formatBRL(fixasVsVariaveis.fixas)} ({fixasVsVariaveis.pctFixas.toFixed(0)}%)</strong></div>
         <div className="row" style={{ marginTop: 6 }}><span>Variáveis</span><strong>{formatBRL(fixasVsVariaveis.variaveis)} ({fixasVsVariaveis.pctVariaveis.toFixed(0)}%)</strong></div>
       </div>
+      <div className="card">
+        <h3>Conta</h3>
+        <p style={{ color: 'var(--text-muted)', margin: '0 0 10px', fontSize: 13 }}>Seus dados ficam salvos na nuvem e aparecem em qualquer aparelho em que você entrar.</p>
+        <button className="btn-secondary" onClick={sairDaConta}>Sair da conta</button>
+      </div>
     </div>
   );
+}
+
+function traduzirErroAuth(e) {
+  const m = (e && e.message) || '';
+  if (/invalid login/i.test(m)) return 'E-mail ou senha incorretos.';
+  if (/already registered/i.test(m)) return 'Este e-mail já tem cadastro. Use a opção Entrar.';
+  if (/not confirmed/i.test(m)) return 'Confirme seu e-mail (veja sua caixa de entrada) antes de entrar.';
+  if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Espere um pouco e tente de novo.';
+  if (/password/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  return m || 'Algo deu errado. Tente de novo.';
+}
+
+function TelaLogin() {
+  const [modo, setModo] = useState('entrar');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [msg, setMsg] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  async function enviar() {
+    if (!email.trim() || senha.length < 6) { setMsg('Digite um e-mail e uma senha com pelo menos 6 caracteres.'); return; }
+    setEnviando(true); setMsg('');
+    try {
+      if (modo === 'entrar') {
+        const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: senha });
+        if (error) setMsg(traduzirErroAuth(error));
+      } else {
+        const { data, error } = await sb.auth.signUp({ email: email.trim(), password: senha });
+        if (error) setMsg(traduzirErroAuth(error));
+        else if (!data.session) setMsg('Conta criada! Abra o e-mail que enviamos, confirme o cadastro e depois volte aqui para entrar.');
+      }
+    } catch (e) { setMsg('Sem conexão. Tente de novo.'); }
+    setEnviando(false);
+  }
+  return (
+    <div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh' }}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <h1 style={{ margin: '0 0 6px', fontSize: 26 }}>Caixa Fácil</h1>
+        <p style={{ color: 'var(--text-muted)', margin: 0 }}>{modo === 'entrar' ? 'Entre na sua conta' : 'Crie sua conta'}</p>
+      </div>
+      <div className="card">
+        <label className="field-label">E-mail</label>
+        <input type="email" autoComplete="email" placeholder="voce@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className="field-label">Senha</label>
+        <input type="password" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} placeholder="Mínimo 6 caracteres" value={senha} onChange={(e) => setSenha(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') enviar(); }} />
+        {msg && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '10px 0 0' }}>{msg}</p>}
+      </div>
+      <button className="btn-primary" disabled={enviando} onClick={enviar}>{enviando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}</button>
+      <button className="btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => { setModo(modo === 'entrar' ? 'criar' : 'entrar'); setMsg(''); }}>
+        {modo === 'entrar' ? 'Não tenho conta — criar agora' : 'Já tenho conta — entrar'}
+      </button>
+    </div>
+  );
+}
+
+function Raiz() {
+  const [fase, setFase] = useState('carregando');
+  const [erro, setErro] = useState('');
+  const uidAtual = useRef(null);
+  async function entrar(sessao) {
+    if (uidAtual.current === sessao.user.id) return;
+    uidAtual.current = sessao.user.id;
+    setFase('carregando');
+    try {
+      await carregarDadosRemotos(sessao.user.id);
+      await oferecerImportacaoLocal();
+      setFase('pronto');
+    } catch (e) {
+      console.error(e); uidAtual.current = null;
+      setErro('Não foi possível carregar seus dados. Verifique a internet e tente de novo.'); setFase('erro');
+    }
+  }
+  function aoSair() { uidAtual.current = null; limparSessaoLocal(); setFase('login'); }
+  function iniciar() { sb.auth.getSession().then(({ data }) => { if (data.session) entrar(data.session); else setFase('login'); }); }
+  useEffect(() => {
+    iniciar();
+    const { data: sub } = sb.auth.onAuthStateChange((evento, sessao) => {
+      setTimeout(() => {
+        if (evento === 'SIGNED_OUT') aoSair();
+        else if (sessao && (evento === 'SIGNED_IN' || evento === 'INITIAL_SESSION')) entrar(sessao);
+      }, 0);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  if (fase === 'pronto') return <App />;
+  if (fase === 'login') return <div className="phone"><TelaLogin /></div>;
+  if (fase === 'erro') return (
+    <div className="phone"><div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh', textAlign: 'center' }}>
+      <p style={{ color: 'var(--danger)' }}>{erro}</p>
+      <button className="btn-primary" onClick={() => { setFase('carregando'); iniciar(); }}>Tentar de novo</button>
+    </div></div>
+  );
+  return <div className="phone"><div className="screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-muted)' }}>Carregando...</div></div>;
 }
 
 function App() {
@@ -2729,7 +3034,7 @@ function App() {
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(<Raiz />);
 </script>
 </body>
 </html>
