@@ -396,7 +396,7 @@ async function enviarDiferencas(prev, next, lojaId) {
     ['lancamentos', 'lancamentos', (l) => ({ id: l.id, loja_id: lojaId, caixa_id: l.caixaId || null, data: l.data, hora: l.hora || null, tipo: l.tipo, categoria: l.categoria || null, descricao: l.descricao || '', forma_pagamento: l.formaPagamento || null, valor: Number(l.valor) || 0, origem: l.origem || 'manual', observacoes: l.observacoes || '', conciliado_em: l.conciliadoEm || null, criado_em: l.criadoEm || new Date().toISOString(), editado_em: l.editadoEm || null })],
     ['contas', 'contas', (c) => ({ id: c.id, loja_id: lojaId, descricao: c.descricao || '', valor: Number(c.valor) || 0, vencimento: c.vencimento, tipo: c.tipo, status: c.status || 'Pendente', recorrente: !!c.recorrente, cliente_nome: c.clienteNome || '', aprovado_por: c.aprovadoPor || null, aprovado_em: c.aprovadoEm || null })],
     ['custosFixos', 'custos_fixos', (c) => ({ id: c.id, loja_id: lojaId, categoria: c.categoria || null, descricao: c.descricao || '', valor: Number(c.valor) || 0, dia_vencimento: c.diaVencimento || null, chave_pix: c.chavePix || '', ultimo_mes_lancado: c.ultimoMesLancado || null })],
-    ['produtos', 'produtos', (p) => ({ id: p.id, loja_id: lojaId, nome: p.nome, unidade: p.unidade || 'unidade', minimo: Number(p.minimo) || 0, criado_em: p.criadoEm || new Date().toISOString() })],
+    ['produtos', 'produtos', (p) => ({ id: p.id, loja_id: lojaId, nome: p.nome, unidade: p.unidade || 'unidade', minimo: Number(p.minimo) || 0, custo: Number(p.custo) || 0, preco: Number(p.preco) || 0, ideal: Number(p.ideal) || 0, criado_em: p.criadoEm || new Date().toISOString() })],
     ['movimentosEstoque', 'movimentos_estoque', (m) => ({ id: m.id, loja_id: lojaId, produto_id: m.produtoId, tipo: m.tipo, quantidade: Number(m.quantidade) || 0, observacao: m.observacao || '', origem: m.origem || 'manual', criado_em: m.criadoEm || new Date().toISOString() })],
     ['funcionarios', 'funcionarios', (f) => ({ id: f.id, loja_id: lojaId, nome: f.nome, cargo: f.cargo || '', salario_bruto: Number(f.salarioBruto) || 0, data_admissao: f.dataAdmissao || null, valor_vt: Number(f.valorVT) || 0, valor_vr: Number(f.valorVR) || 0, chave_pix: f.chavePix || '' })],
   ];
@@ -507,7 +507,7 @@ async function carregarDadosRemotos(userId) {
     compras: cp.map((c) => ({ id: c.id, data: c.data, fornecedor: c.fornecedor, formaPagamento: c.forma_pagamento || '', fotoDataUrl: c.foto_url || null, itens: itensPorCompra[c.id] || [] })),
     custosFixos: cf.map((c) => ({ id: c.id, categoria: c.categoria || '', descricao: c.descricao, valor: num(c.valor), diaVencimento: c.dia_vencimento, chavePix: c.chave_pix || '', ultimoMesLancado: c.ultimo_mes_lancado })),
     funcionarios: fn.map((f) => ({ id: f.id, nome: f.nome, cargo: f.cargo || '', salarioBruto: num(f.salario_bruto), dataAdmissao: f.data_admissao || '', valorVT: num(f.valor_vt), valorVR: num(f.valor_vr), chavePix: f.chave_pix || '' })),
-    produtos: pr.map((x) => ({ id: x.id, nome: x.nome, unidade: x.unidade || 'unidade', minimo: num(x.minimo), criadoEm: x.criado_em })),
+    produtos: pr.map((x) => ({ id: x.id, nome: x.nome, unidade: x.unidade || 'unidade', minimo: num(x.minimo), custo: num(x.custo), preco: num(x.preco), ideal: num(x.ideal), criadoEm: x.criado_em })),
     movimentosEstoque: mv.map((x) => ({ id: x.id, produtoId: x.produto_id, tipo: x.tipo, quantidade: num(x.quantidade), observacao: x.observacao || '', origem: x.origem || 'manual', criadoEm: x.criado_em })),
     auditoria: au.map((a) => ({ id: a.id, em: a.em, acao: a.acao, lancamentoId: a.lancamento_id, descricao: a.descricao, valor: a.valor == null ? a.valor : Number(a.valor), detalhe: a.detalhe || '' })),
   };
@@ -670,8 +670,8 @@ const actions = {
     setState((s) => ({ ...s, custosFixos: [...s.custosFixos, item] }));
   },
   removeCustoFixo(id) { setState((s) => ({ ...s, custosFixos: s.custosFixos.filter((c) => c.id !== id) })); },
-  addProduto({ nome, unidade, minimo, saldoInicial }) {
-    const item = { id: uid(), nome: nome.trim(), unidade: unidade || 'unidade', minimo: Number(minimo) || 0, criadoEm: agoraISO() };
+  addProduto({ nome, unidade, minimo, saldoInicial, custo, preco }) {
+    const item = { id: uid(), nome: nome.trim(), unidade: unidade || 'unidade', minimo: Number(minimo) || 0, custo: Number(custo) || 0, preco: Number(preco) || 0, ideal: 0, criadoEm: agoraISO() };
     const q = Number(saldoInicial) || 0;
     setState((s) => ({
       ...s,
@@ -698,7 +698,7 @@ const actions = {
           const chave = semAcento(it.nome || '').trim();
           if (!chave) return;
           if (!criados.has(chave)) {
-            const novo = { id: uid(), nome: it.nome.trim(), unidade: it.unidade || 'unidade', minimo: 0, criadoEm: agora };
+            const novo = { id: uid(), nome: it.nome.trim(), unidade: it.unidade || 'unidade', minimo: 0, custo: 0, preco: 0, ideal: 0, criadoEm: agora };
             criados.set(chave, novo.id);
             produtos = [...produtos, novo];
           }
@@ -1616,6 +1616,7 @@ function RecordFlow({ onSalvo, onCancelar }) {
   const [modoManual, setModoManual] = useState(false);
   const [erro, setErro] = useState(null);
   const [entrada, setEntrada] = useState(null);
+  const [estoqueSug, setEstoqueSug] = useState([]);
   const recognitionRef = useRef(null);
   const suportado = !!speechRecognitionDisponivel();
 
@@ -1641,9 +1642,16 @@ function RecordFlow({ onSalvo, onCancelar }) {
   function confirmarTranscricao() {
     const resultado = interpretarComAprendizado(texto, state.lancamentos);
     setEntrada({ ...resultado, caixaId: (state.caixas[0] && state.caixas[0].id) || 'principal' });
+    const sug = state.produtos.length ? interpretarEstoque(texto, state.produtos).itens.filter((i) => i.produtoId && i.tipo).map((i) => ({ ...i, key: uid(), ativo: true })) : [];
+    setEstoqueSug(sug);
     setEtapa('confirmar');
   }
-  function salvar() { actions.addLancamento({ ...entrada, origem: modoManual ? 'manual' : 'audio' }); onSalvo(); }
+  function salvar() {
+    actions.addLancamento({ ...entrada, origem: modoManual ? 'manual' : 'audio' });
+    const ativos = estoqueSug.filter((i) => i.ativo && Number(i.quantidade) > 0);
+    if (ativos.length) actions.movimentarEstoque(ativos.map((i) => ({ produtoId: i.produtoId, tipo: i.tipo, quantidade: Number(i.quantidade), observacao: entrada.tipo === 'Entrada' ? 'Venda' : 'Compra' })), modoManual ? 'texto' : 'voz');
+    onSalvo();
+  }
 
   if (etapa === 'confirmar' && entrada) {
     return (
@@ -1668,6 +1676,17 @@ function RecordFlow({ onSalvo, onCancelar }) {
             </React.Fragment>
           )}
         </div>
+        {estoqueSug.length > 0 && (
+          <div className="card">
+            <h3>📦 Atualizar o estoque também</h3>
+            {estoqueSug.map((i) => (
+              <label key={i.key} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontSize: 15 }}>
+                <input type="checkbox" style={{ width: 22, height: 22 }} checked={i.ativo} onChange={(e) => setEstoqueSug(estoqueSug.map((x) => (x.key === i.key ? { ...x, ativo: e.target.checked } : x)))} />
+                <span>{i.tipo === 'saida' ? 'Tirar' : 'Adicionar'} <strong>{formatQtd(i.quantidade)} {rotuloUnidade(i.unidade, i.quantidade)}</strong> de {i.nome}</span>
+              </label>
+            ))}
+          </div>
+        )}
         <button className="btn-primary" onClick={salvar} disabled={!entrada.valor}>✓ Salvar lançamento</button>
       </div>
     );
@@ -1899,11 +1918,12 @@ function interpretarEstoque(textoOriginal, produtos) {
   verbos.sort((a, b) => a.i - b.i);
   const todosVerbos = VERBOS_ENTRADA.concat(VERBOS_SAIDA).join('|');
   const reVerbos = new RegExp('\\b(' + todosVerbos + ')\\b', 'g');
-  const numeros = [...t.matchAll(/\d+(?:\.\d+)?/g)].map((m) => ({ i: m.index, len: m[0].length, valor: parseFloat(m[0]) }));
+  const numeros = [...t.matchAll(/\d+(?:\.\d+)?/g)].map((m) => ({ i: m.index, len: m[0].length, valor: parseFloat(m[0]) }))
+    .filter((n) => !/(\bpor|r\$)\s*$/.test(t.slice(Math.max(0, n.i - 6), n.i)) && !/^\s*(reais|real|centavos)\b/.test(t.slice(n.i + n.len, n.i + n.len + 10)));
   const limpar = (txt) => {
     let x = ' ' + txt.replace(reVerbos, ' ') + ' ';
     x = x.replace(/\bacabou de\b/g, ' ').replace(/\b(no|na) estoque\b/g, ' ').replace(/\b(hoje|ontem|agora|ja)\b/g, ' ');
-    x = x.replace(/[,.;]+/g, ' ').replace(/\s+/g, ' ').trim();
+    x = x.replace(/[,.;]+/g, ' ').replace(/\bpor\b.*$/, '').replace(/\br\$.*$/, '').replace(/\b(no|na|em)\s+(pix|dinheiro|cartao|debito|credito|boleto)\b.*$/, '').replace(/\s+/g, ' ').trim();
     let unidade = null;
     const mu = x.match(new RegExp('^(' + UNIDADES_ESTOQUE_RE + ')\\b\\s*'));
     if (mu) { unidade = singularUnidade(mu[1]); x = x.slice(mu[0].length); }
@@ -1954,6 +1974,7 @@ function Estoque({ voltar, onToast }) {
   const [rapido, setRapido] = useState({});
   const [novo, setNovo] = useState(null);
   const [contagem, setContagem] = useState('');
+  const [lista, setLista] = useState(null);
   const recRef = useRef(null);
   const usouVoz = useRef(false);
   const suportado = !!speechRecognitionDisponivel();
@@ -1994,6 +2015,24 @@ function Estoque({ voltar, onToast }) {
     if (!(q > 0)) return;
     actions.movimentarEstoque([{ produtoId: p.id, tipo, quantidade: q }], 'manual');
   }
+  const lucros = useMemo(() => {
+    const corte = Date.now() - 30 * 24 * 3600 * 1000;
+    return state.produtos.filter((p) => p.custo > 0 && p.preco > 0).map((p) => {
+      const saiu = -state.movimentosEstoque.filter((m) => m.produtoId === p.id && m.tipo === 'saida' && new Date(m.criadoEm).getTime() >= corte).reduce((a, m) => a + Number(m.quantidade), 0);
+      return { p, saiu, lucro: saiu * (p.preco - p.custo), margem: ((p.preco - p.custo) / p.preco) * 100 };
+    }).sort((a, b) => b.lucro - a.lucro);
+  }, [state.produtos, state.movimentosEstoque]);
+  const valorEstoque = state.produtos.reduce((a, p) => a + Math.max(saldos[p.id] || 0, 0) * (p.custo || 0), 0);
+  function abrirLista() {
+    const itensLista = state.produtos.map((p) => {
+      const saldo = saldos[p.id] || 0;
+      const baixo = p.minimo > 0 && saldo <= p.minimo;
+      const alvo = p.ideal > 0 ? p.ideal : p.minimo * 2;
+      return { id: p.id, nome: p.nome, unidade: p.unidade, baixo, incluir: baixo, qtd: baixo ? String(Math.max(Math.ceil(alvo - saldo), 1)) : '1' };
+    }).sort((a, b) => Number(b.baixo) - Number(a.baixo));
+    setLista(itensLista);
+  }
+  const mensagemLista = lista ? ['Pedido' + (state.perfil && state.perfil.nomeNegocio ? ' — ' + state.perfil.nomeNegocio : '') + ':'].concat(lista.filter((i) => i.incluir && Number(i.qtd) > 0).map((i) => '- ' + formatQtd(Number(i.qtd)) + ' ' + rotuloUnidade(i.unidade, Number(i.qtd)) + ' de ' + i.nome)).join('\n') : '';
   function salvarNovo() {
     if (!novo.nome.trim()) return;
     actions.addProduto(novo);
@@ -2058,10 +2097,38 @@ function Estoque({ voltar, onToast }) {
           <div className="chip-row">{UNIDADES_OPCOES.map((u) => <button key={u} className={`pill ${novo.unidade === u ? 'selected' : ''}`} onClick={() => setNovo({ ...novo, unidade: u })}>{u}</button>)}</div>
           <label className="field-label">Quantidade que você tem agora</label>
           <input type="number" inputMode="decimal" step="any" min="0" value={novo.saldoInicial} onChange={(e) => setNovo({ ...novo, saldoInicial: e.target.value })} placeholder="0" />
+          <label className="field-label">Preço de compra por unidade (opcional, R$)</label>
+          <input type="number" inputMode="decimal" step="0.01" min="0" value={novo.custo} onChange={(e) => setNovo({ ...novo, custo: e.target.value })} placeholder="0,00" />
+          <label className="field-label">Preço de venda por unidade (opcional, R$)</label>
+          <input type="number" inputMode="decimal" step="0.01" min="0" value={novo.preco} onChange={(e) => setNovo({ ...novo, preco: e.target.value })} placeholder="0,00" />
           <label className="field-label">Avisar quando restar até (opcional)</label>
           <input type="number" inputMode="decimal" step="any" min="0" value={novo.minimo} onChange={(e) => setNovo({ ...novo, minimo: e.target.value })} placeholder="Ex.: 3" />
         </div>
         <button className="btn-primary" disabled={!novo.nome.trim()} onClick={salvarNovo}>Cadastrar produto</button>
+      </div>
+    );
+  }
+
+  if (lista) {
+    const marcados = lista.filter((i) => i.incluir && Number(i.qtd) > 0).length;
+    return (
+      <div>
+        {cabecalho('Lista de compras', () => setLista(null))}
+        <div className="alert-box" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Os produtos com estoque baixo já vêm marcados, com a quantidade para chegar no estoque ideal. Ajuste o que precisar.</div>
+        <div className="card">
+          {lista.length === 0 && <div className="empty-state">Cadastre produtos para montar a lista.</div>}
+          {lista.map((i) => (
+            <div className="list-item" key={i.id} style={{ gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minHeight: 44 }}>
+                <input type="checkbox" style={{ width: 22, height: 22 }} checked={i.incluir} onChange={(e) => setLista(lista.map((x) => (x.id === i.id ? { ...x, incluir: e.target.checked } : x)))} />
+                <span><span style={{ fontWeight: 600 }}>{i.nome}</span>{i.baixo && <span className="badge pendente" style={{ marginLeft: 6 }}>baixo</span>}<span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>tem {formatQtd(saldos[i.id] || 0)} {rotuloUnidade(i.unidade, saldos[i.id] || 0)}</span></span>
+              </label>
+              <input type="number" inputMode="decimal" step="any" min="0" aria-label={`Quantidade de ${i.nome}`} style={{ width: 80, textAlign: 'center' }} value={i.qtd} onChange={(e) => setLista(lista.map((x) => (x.id === i.id ? { ...x, qtd: e.target.value } : x)))} />
+            </div>
+          ))}
+        </div>
+        <button className="btn-primary" disabled={!marcados} onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent(mensagemLista), '_blank')}>Enviar pelo WhatsApp</button>
+        <button className="btn-secondary" style={{ marginTop: 10 }} disabled={!marcados} onClick={() => { try { navigator.clipboard.writeText(mensagemLista); onToast && onToast('Lista copiada!'); } catch { alert(mensagemLista); } }}>Copiar lista</button>
       </div>
     );
   }
@@ -2083,6 +2150,20 @@ function Estoque({ voltar, onToast }) {
       </div>
 
       {baixos.length > 0 && <div className="alert-box">⚠️ Estoque baixo: {baixos.map((p) => p.nome).join(', ')}.</div>}
+      {state.produtos.length > 0 && <button className="btn-secondary" style={{ marginBottom: 14 }} onClick={abrirLista}>🛒 Lista de compras{baixos.length > 0 ? ` (${baixos.length} em falta)` : ''}</button>}
+      {valorEstoque > 0 && <div className="card"><div className="row"><span>Valor do estoque (preço de compra)</span><strong>{formatBRL(valorEstoque)}</strong></div></div>}
+      {lucros.length > 0 && (
+        <div className="card">
+          <h3>Lucro por produto (saídas dos últimos 30 dias)</h3>
+          {lucros.map(({ p, saiu, lucro, margem }) => (
+            <div className="list-item" key={p.id}>
+              <div><div style={{ fontWeight: 600 }}>{p.nome}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>saíram {formatQtd(saiu)} {rotuloUnidade(p.unidade, saiu)} · margem {margem.toFixed(0)}%</div></div>
+              <strong className={`value ${lucro >= 0 ? 'positive' : 'negative'}`}>{formatBRL(lucro)}</strong>
+            </div>
+          ))}
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>Estimativa: considera que tudo que saiu foi vendido pelo preço de venda cadastrado.</div>
+        </div>
+      )}
 
       {state.produtos.length === 0 && <div className="card empty-state">Nenhum produto ainda. Diga o que chegou (ex.: "chegaram 10 fardos de coca") ou cadastre um produto.</div>}
 
@@ -2108,9 +2189,16 @@ function Estoque({ voltar, onToast }) {
               <input type="number" inputMode="decimal" step="any" min="0" aria-label={`Quantidade de ${p.nome}`} value={rapido[p.id] ?? 1} onChange={(e) => setRapido({ ...rapido, [p.id]: e.target.value })} style={{ width: 72, textAlign: 'center' }} />
               <button className="btn-secondary" style={{ flex: 1, padding: '10px 8px', minHeight: 44 }} onClick={() => movimentoRapido(p, 'entrada')}>+ Entrada</button>
             </div>
+            {p.custo > 0 && p.preco > 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10 }}>Lucro por {p.unidade}: <strong>{formatBRL(p.preco - p.custo)}</strong> · margem {(((p.preco - p.custo) / p.preco) * 100).toFixed(0)}%</div>}
             <button className="link-btn" style={{ marginTop: 8 }} onClick={() => { setAbertoId(aberto ? null : p.id); setContagem(''); }}>{aberto ? 'Fechar detalhes' : 'Detalhes e histórico'}</button>
             {aberto && (
               <div style={{ marginTop: 6, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                <label className="field-label">Preço de compra (por {p.unidade}, R$)</label>
+                <input type="number" inputMode="decimal" step="0.01" min="0" defaultValue={p.custo || ''} placeholder="0,00" onBlur={(e) => actions.updateProduto(p.id, { custo: Number(e.target.value) || 0 })} />
+                <label className="field-label">Preço de venda (por {p.unidade}, R$)</label>
+                <input type="number" inputMode="decimal" step="0.01" min="0" defaultValue={p.preco || ''} placeholder="0,00" onBlur={(e) => actions.updateProduto(p.id, { preco: Number(e.target.value) || 0 })} />
+                <label className="field-label">Estoque ideal (para a lista de compras)</label>
+                <input type="number" inputMode="decimal" step="any" min="0" defaultValue={p.ideal || ''} placeholder="Ex.: 20" onBlur={(e) => actions.updateProduto(p.id, { ideal: Number(e.target.value) || 0 })} />
                 <label className="field-label">Avisar quando restar até</label>
                 <input type="number" inputMode="decimal" step="any" min="0" defaultValue={p.minimo || ''} placeholder="0 = não avisar" onBlur={(e) => actions.updateProduto(p.id, { minimo: Number(e.target.value) || 0 })} />
                 <label className="field-label">Contei no estoque (acertar saldo)</label>
@@ -2138,7 +2226,7 @@ function Estoque({ voltar, onToast }) {
           </div>
         );
       })}
-      <button className="btn-secondary" onClick={() => setNovo({ nome: '', unidade: 'fardo', saldoInicial: '', minimo: '' })}>+ Cadastrar produto</button>
+      <button className="btn-secondary" onClick={() => setNovo({ nome: '', unidade: 'fardo', saldoInicial: '', minimo: '', custo: '', preco: '' })}>+ Cadastrar produto</button>
     </div>
   );
 }
