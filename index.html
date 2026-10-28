@@ -7,32 +7,32 @@
 <title>Caixa Fácil — Controle por Áudio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --canvas: #f1f8f3; --bg: #ffffff; --surface: #f3faf5; --surface-2: #e6f4ea; --text: #12261a; --text-muted: #5a7566;
-  --border: #cfe6d6; --primary: #15803d; --primary-fill: #15803d; --primary-dark: #166534; --primary-light: #dcfce7;
-  --danger: #dc2626; --danger-light: #fee2e2; --warning: #b45309; --warning-light: #fef3c7;
-  --blue: #0f766e; --blue-light: #ccfbf1; --frame: #14532d;
-  --font-display: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --radius: 16px; --radius-sm: 10px; --shadow: 0 4px 18px rgba(21, 128, 61, 0.12);
+  --canvas: #F4F4F5; --bg: #FFFFFF; --surface: #FAFAFA; --surface-2: #F4F4F5; --text: #18181B; --text-muted: #52525B;
+  --border: #D4D4D8; --primary: #4D7C0F; --primary-fill: #A3E635; --primary-dark: #3F6212; --primary-light: #ECFCCB;
+  --danger: #DC2626; --danger-light: #FEE2E2; --warning: #B45309; --warning-light: #FEF3C7;
+  --blue: #1D4ED8; --blue-light: #DBEAFE; --frame: #18181B;
+  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 16px; --radius-sm: 10px; --shadow: 0 4px 18px rgba(24, 24, 27, 0.08);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #f1f8f3; --bg: #ffffff; --surface: #f3faf5; --surface-2: #e6f4ea; --text: #12261a; --text-muted: #5a7566;
-    --border: #cfe6d6; --primary: #15803d; --primary-fill: #15803d; --primary-dark: #166534; --primary-light: #dcfce7;
-    --danger: #dc2626; --danger-light: #fee2e2; --warning: #b45309; --warning-light: #fef3c7;
-    --blue: #0f766e; --blue-light: #ccfbf1; --frame: #14532d;
-    --shadow: 0 4px 18px rgba(21, 128, 61, 0.12);
+    --canvas: #F4F4F5; --bg: #FFFFFF; --surface: #FAFAFA; --surface-2: #F4F4F5; --text: #18181B; --text-muted: #52525B;
+    --border: #D4D4D8; --primary: #4D7C0F; --primary-fill: #A3E635; --primary-dark: #3F6212; --primary-light: #ECFCCB;
+    --danger: #DC2626; --danger-light: #FEE2E2; --warning: #B45309; --warning-light: #FEF3C7;
+    --blue: #1D4ED8; --blue-light: #DBEAFE; --frame: #18181B;
+    --shadow: 0 4px 18px rgba(24, 24, 27, 0.08);
   }
 }
 :root[data-theme="dark"] {
-  --canvas: #f1f8f3; --bg: #ffffff; --surface: #f3faf5; --surface-2: #e6f4ea; --text: #12261a; --text-muted: #5a7566;
-  --border: #cfe6d6; --primary: #15803d; --primary-fill: #15803d; --primary-dark: #166534; --primary-light: #dcfce7;
-  --danger: #dc2626; --danger-light: #fee2e2; --warning: #b45309; --warning-light: #fef3c7;
-  --blue: #0f766e; --blue-light: #ccfbf1; --frame: #14532d;
-  --shadow: 0 4px 18px rgba(21, 128, 61, 0.12);
+  --canvas: #F4F4F5; --bg: #FFFFFF; --surface: #FAFAFA; --surface-2: #F4F4F5; --text: #18181B; --text-muted: #52525B;
+  --border: #D4D4D8; --primary: #4D7C0F; --primary-fill: #A3E635; --primary-dark: #3F6212; --primary-light: #ECFCCB;
+  --danger: #DC2626; --danger-light: #FEE2E2; --warning: #B45309; --warning-light: #FEF3C7;
+  --blue: #1D4ED8; --blue-light: #DBEAFE; --frame: #18181B;
+  --shadow: 0 4px 18px rgba(24, 24, 27, 0.08);
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -58,11 +58,11 @@ h1 { text-wrap: balance; letter-spacing: -0.01em; }
 .stat-box .value { font-size: 20px; font-weight: 800; margin-top: 4px; }
 .value.positive { color: var(--primary); } .value.negative { color: var(--danger); }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
-.pill.selected { background: var(--primary-fill); border-color: var(--primary-fill); color: #fff; }
+.pill.selected { background: var(--primary-fill); border-color: var(--primary-fill); color: #18181B; }
 .pill.danger.selected { background: var(--danger); border-color: var(--danger); }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 button { font-family: inherit; cursor: pointer; color: inherit; background: none; border: none; }
-.btn-primary { background: var(--primary-fill); color: #fff; border: none; border-radius: var(--radius-sm); padding: 14px 18px; font-size: 16px; font-weight: 700; width: 100%; }
+.btn-primary { background: var(--primary-fill); color: #18181B; border: none; border-radius: var(--radius-sm); padding: 14px 18px; font-size: 16px; font-weight: 700; width: 100%; }
 .btn-primary:disabled { opacity: .5; }
 .btn-secondary { background: var(--surface-2); color: var(--text); border: none; border-radius: var(--radius-sm); padding: 14px 18px; font-size: 15px; font-weight: 700; width: 100%; }
 .btn-ghost { background: transparent; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--text); }
@@ -72,10 +72,10 @@ label.field-label { font-size: 12px; font-weight: 700; color: var(--text-muted);
 .navbtn { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-muted); font-size: 11px; font-weight: 600; padding: 4px 8px; flex: 1; }
 .navbtn.active { color: var(--primary); }
 .navbtn .icon { font-size: 20px; }
-.fab { position: absolute; left: 50%; transform: translateX(-50%); top: -26px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-fill); color: #fff; border: 5px solid var(--bg); font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(21,128,61,.45); }
+.fab { position: absolute; left: 50%; transform: translateX(-50%); top: -26px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-fill); color: #18181B; border: 5px solid var(--bg); font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(163,230,53,.45); }
 .fab-wrap { position: relative; width: 60px; }
 .mic-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; gap: 18px; }
-.mic-btn { width: 140px; height: 140px; border-radius: 50%; border: none; background: var(--primary-fill); color: #fff; font-size: 52px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 28px rgba(21,128,61,.4); }
+.mic-btn { width: 140px; height: 140px; border-radius: 50%; border: none; background: var(--primary-fill); color: #18181B; font-size: 52px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 28px rgba(163,230,53,.4); }
 .mic-btn.recording { background: var(--danger); animation: pulse 1.4s infinite; box-shadow: 0 6px 24px rgba(209,69,59,.4); }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(209,69,59,.45); } 70% { box-shadow: 0 0 0 22px rgba(209,69,59,0); } 100% { box-shadow: 0 0 0 0 rgba(209,69,59,0); } }
 .transcript-box { background: var(--surface); border-radius: var(--radius); padding: 14px; font-size: 15px; min-height: 50px; width: 100%; box-shadow: var(--shadow); }
@@ -91,7 +91,7 @@ label.field-label { font-size: 12px; font-weight: 700; color: var(--text-muted);
 .bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-top: 10px; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: flex-end; height: 100%; }
 .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
-.bar.entrada { --bar-top: var(--primary); --bar-bottom: var(--primary-dark); } .bar.saida { --bar-top: var(--danger); --bar-bottom: var(--danger); }
+.bar.entrada { --bar-top: #A3E635; --bar-bottom: #65A30D; } .bar.saida { --bar-top: var(--danger); --bar-bottom: var(--danger); }
 .bar-label { font-size: 9px; color: var(--text-muted); }
 .progress-track { background: var(--surface-2); border-radius: 999px; height: 10px; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--primary); border-radius: 999px; }
@@ -103,7 +103,7 @@ label.field-label { font-size: 12px; font-weight: 700; color: var(--text-muted);
 .item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .item-row input { flex: 1; }
 .link-btn { background: none; border: none; color: var(--blue); font-weight: 700; font-size: 14px; padding: 8px 0; }
-.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #14532d; color: #fff; padding: 12px 20px 12px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.28); z-index: 50; display: flex; align-items: center; gap: 8px; animation: toastIn .28s cubic-bezier(.2,.8,.2,1) both; }
+.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #18181B; color: #fff; padding: 12px 20px 12px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.28); z-index: 50; display: flex; align-items: center; gap: 8px; animation: toastIn .28s cubic-bezier(.2,.8,.2,1) both; }
 .toast .toast-check { width: 18px; height: 18px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 
@@ -134,7 +134,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 
 .card-link { display: block; width: 100%; text-align: left; border: 1px solid transparent; cursor: pointer; }
-.card-link:hover { box-shadow: 0 6px 20px rgba(21,128,61,.14); border-color: var(--border); }
+.card-link:hover { box-shadow: 0 6px 20px rgba(24,24,27,.12); border-color: var(--border); }
 .card-link:active { transform: scale(.99); }
 
 .stat-icon { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; margin-bottom: 8px; }
@@ -2734,309 +2734,4 @@ function Precificacao({ voltar }) {
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 10 }}><button className="close-x" onClick={voltar}>←</button><h1 style={{ fontSize: 17, margin: 0 }}>Sugestão de preço</h1><div style={{ width: 28 }} /></div>
-
-      <div className="card">
-        {produtos.length > 0 && (
-          <React.Fragment>
-            <label className="field-label">Puxar custo de um insumo já comprado (opcional)</label>
-            <select value={produtoSelecionado} onChange={(e) => selecionarProduto(e.target.value)}>
-              <option value="">Digitar manualmente</option>
-              {produtos.map((p) => <option key={p.produto} value={p.produto}>{p.produto} — {formatBRL(p.ultimoValor)}</option>)}
-            </select>
-          </React.Fragment>
-        )}
-        <label className="field-label">Custo do produto/insumo (R$)</label>
-        <input type="number" step="0.01" value={custo} onChange={(e) => setCusto(e.target.value)} placeholder="Quanto custou pra você" />
-        <label className="field-label">Margem desejada (%)</label>
-        <input type="number" step="1" value={margemPct} onChange={(e) => setMargemPct(e.target.value)} />
-        <label className="field-label">Como calcular</label>
-        <div className="chip-row">
-          <button className={`pill ${modo === 'margem' ? 'selected' : ''}`} onClick={() => setModo('margem')}>Margem sobre o preço de venda</button>
-          <button className={`pill ${modo === 'markup' ? 'selected' : ''}`} onClick={() => setModo('markup')}>Markup sobre o custo</button>
-        </div>
-      </div>
-
-      {preco != null && (
-        <div className="card">
-          <div className="row"><span>Preço de venda sugerido</span><strong style={{ fontSize: 20 }}>{formatBRL(preco)}</strong></div>
-          <div className="row" style={{ marginTop: 8 }}><span>Lucro por unidade</span><strong className="value positive">{formatBRL(lucroUnitario)}</strong></div>
-        </div>
-      )}
-
-      <div className="card" style={{ background: 'var(--surface-2)' }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          <strong>Margem sobre o preço de venda</strong>: se você quer que 30% do preço final seja lucro, o preço fica maior — usa a fórmula preço = custo ÷ (1 − margem).<br /><br />
-          <strong>Markup sobre o custo</strong>: adiciona a margem em cima do custo — preço = custo × (1 + margem). Mais simples, mas o % de lucro real sobre a venda acaba sendo menor que o markup usado.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Metas({ voltar }) {
-  const state = useStore();
-  const [faturamento, setFaturamento] = useState(state.metas.faturamento || '');
-  const [lucro, setLucro] = useState(state.metas.lucro || '');
-  const resumoMes = resumoPeriodo(state.lancamentos, 30);
-  const pctFaturamento = state.metas.faturamento ? Math.min(100, (resumoMes.faturamento / state.metas.faturamento) * 100) : 0;
-  const pctLucro = state.metas.lucro ? Math.min(100, (resumoMes.lucro / state.metas.lucro) * 100) : 0;
-  function salvar() { actions.setMetas({ faturamento: Number(faturamento) || 0, lucro: Number(lucro) || 0 }); }
-  return (
-    <div>
-      <div className="row" style={{ marginBottom: 10 }}><button className="close-x" onClick={voltar}>←</button><h1 style={{ fontSize: 17, margin: 0 }}>Metas do mês</h1><div style={{ width: 28 }} /></div>
-      {(state.metas.faturamento > 0 || state.metas.lucro > 0) && (
-        <div className="card">
-          <h3>Progresso (últimos 30 dias)</h3>
-          {state.metas.faturamento > 0 && <div style={{ marginBottom: 14 }}><div className="row"><span>Faturamento</span><span>{formatBRL(resumoMes.faturamento)} / {formatBRL(state.metas.faturamento)}</span></div><div className="progress-track"><div className="progress-fill" style={{ width: `${pctFaturamento}%` }} /></div></div>}
-          {state.metas.lucro > 0 && <div><div className="row"><span>Lucro</span><span>{formatBRL(resumoMes.lucro)} / {formatBRL(state.metas.lucro)}</span></div><div className="progress-track"><div className="progress-fill" style={{ width: `${pctLucro}%` }} /></div></div>}
-        </div>
-      )}
-      <div className="card">
-        <h3>Definir metas</h3>
-        <label className="field-label">Meta de faturamento mensal (R$)</label>
-        <input type="number" value={faturamento} onChange={(e) => setFaturamento(e.target.value)} />
-        <label className="field-label">Meta de lucro mensal (R$)</label>
-        <input type="number" value={lucro} onChange={(e) => setLucro(e.target.value)} />
-        <button className="btn-primary" style={{ marginTop: 14 }} onClick={salvar}>Salvar metas</button>
-      </div>
-    </div>
-  );
-}
-
-function Configuracoes({ voltar }) {
-  const state = useStore();
-  const [nome, setNome] = useState(state.perfil.nomeNegocio);
-  const [ramo, setRamo] = useState(state.perfil.ramo);
-  const [limite, setLimite] = useState(state.perfil.limiteAlertaPreco ?? 5);
-  const [chavePixRecebimento, setChavePixRecebimento] = useState(state.perfil.chavePixRecebimento || '');
-  const [cidade, setCidade] = useState(state.perfil.cidade || '');
-  const [importando, setImportando] = useState(false);
-  const fileRef = useRef(null);
-  const fixasVsVariaveis = despesasFixasVsVariaveis(state.lancamentos);
-  function salvar() { actions.salvarPerfil({ nomeNegocio: nome.trim(), ramo, limiteAlertaPreco: Number(limite) || 5, chavePixRecebimento: chavePixRecebimento.trim(), cidade: cidade.trim() }); }
-
-  async function exportarBackup() {
-    const json = JSON.stringify(state, null, 2);
-    const nomeArquivo = `caixa-facil-backup-${hojeISO()}.json`;
-    try {
-      const downloads = window.claude ? await window.claude.use('downloads') : null;
-      if (downloads) {
-        await downloads.save({ filename: nomeArquivo, data: new Blob([json], { type: 'application/json' }) });
-      } else {
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = nomeArquivo;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      if (e && e.code !== 'declined') alert('Não foi possível exportar o backup agora.');
-    }
-  }
-
-  function importarBackup(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setImportando(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const dados = JSON.parse(reader.result);
-        if (!Array.isArray(dados.lancamentos)) throw new Error('formato inválido');
-        if (confirm('Isso vai substituir todos os dados atuais deste aparelho pelos dados do arquivo de backup (isso também muda os dados da sua conta). Continuar?')) {
-          actions.restaurarBackup(dados);
-        }
-      } catch {
-        alert('Este arquivo não parece ser um backup válido do Caixa Fácil.');
-      } finally {
-        setImportando(false);
-        e.target.value = '';
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  return (
-    <div>
-      <div className="row" style={{ marginBottom: 10 }}><button className="close-x" onClick={voltar}>←</button><h1 style={{ fontSize: 17, margin: 0 }}>Configurações</h1><div style={{ width: 28 }} /></div>
-      <div className="card">
-        <h3>Seu negócio</h3>
-        <label className="field-label">Nome do negócio</label>
-        <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} />
-        <label className="field-label">Ramo de atividade</label>
-        <div className="chip-row">{RAMOS.map((r) => <button key={r.id} className={`pill ${ramo === r.id ? 'selected' : ''}`} onClick={() => setRamo(r.id)}>{r.label}</button>)}</div>
-        <label className="field-label">Alertar quando um insumo subir mais de (%)</label>
-        <input type="number" value={limite} onChange={(e) => setLimite(e.target.value)} />
-        <label className="field-label">Sua chave Pix (para receber cobranças)</label>
-        <input type="text" value={chavePixRecebimento} onChange={(e) => setChavePixRecebimento(e.target.value)} placeholder="CPF, CNPJ, e-mail, celular ou chave aleatória" />
-        <label className="field-label">Cidade do negócio</label>
-        <input type="text" value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Ex.: São Paulo" />
-        <button className="btn-primary" style={{ marginTop: 14 }} onClick={salvar}>Salvar</button>
-      </div>
-      <div className="card">
-        <h3>Backup dos dados</h3>
-        <div className="alert-box" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-          Seus dados ficam salvos só neste aparelho e neste navegador. Se limpar os dados do navegador ou trocar de aparelho, você perde tudo — a menos que tenha um backup. Uma conta na nuvem com sincronização automática ainda não existe (depende de escolher e configurar um provedor de banco de dados).
-        </div>
-        <button className="btn-secondary" onClick={exportarBackup}>⬇️ Exportar backup completo (JSON)</button>
-        <input ref={fileRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={importarBackup} />
-        <button className="btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => fileRef.current && fileRef.current.click()} disabled={importando}>{importando ? 'Importando...' : '⬆️ Importar backup'}</button>
-      </div>
-      <div className="card">
-        <h3>Despesas fixas x variáveis (todo o período)</h3>
-        <div className="row"><span>Fixas (aluguel, salário)</span><strong>{formatBRL(fixasVsVariaveis.fixas)} ({fixasVsVariaveis.pctFixas.toFixed(0)}%)</strong></div>
-        <div className="row" style={{ marginTop: 6 }}><span>Variáveis</span><strong>{formatBRL(fixasVsVariaveis.variaveis)} ({fixasVsVariaveis.pctVariaveis.toFixed(0)}%)</strong></div>
-      </div>
-      <div className="card">
-        <h3>Conta</h3>
-        <p style={{ color: 'var(--text-muted)', margin: '0 0 10px', fontSize: 13 }}>Seus dados ficam salvos na nuvem e aparecem em qualquer aparelho em que você entrar.</p>
-        <button className="btn-secondary" onClick={sairDaConta}>Sair da conta</button>
-      </div>
-    </div>
-  );
-}
-
-function traduzirErroAuth(e) {
-  const m = (e && e.message) || '';
-  if (/invalid login/i.test(m)) return 'E-mail ou senha incorretos.';
-  if (/already registered/i.test(m)) return 'Este e-mail já tem cadastro. Use a opção Entrar.';
-  if (/not confirmed/i.test(m)) return 'Confirme seu e-mail (veja sua caixa de entrada) antes de entrar.';
-  if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Espere um pouco e tente de novo.';
-  if (/password/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.';
-  return m || 'Algo deu errado. Tente de novo.';
-}
-
-function TelaLogin() {
-  const [modo, setModo] = useState('entrar');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [msg, setMsg] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  async function enviar() {
-    if (!email.trim() || senha.length < 6) { setMsg('Digite um e-mail e uma senha com pelo menos 6 caracteres.'); return; }
-    setEnviando(true); setMsg('');
-    try {
-      if (modo === 'entrar') {
-        const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: senha });
-        if (error) setMsg(traduzirErroAuth(error));
-      } else {
-        const { data, error } = await sb.auth.signUp({ email: email.trim(), password: senha });
-        if (error) setMsg(traduzirErroAuth(error));
-        else if (!data.session) setMsg('Conta criada! Abra o e-mail que enviamos, confirme o cadastro e depois volte aqui para entrar.');
-      }
-    } catch (e) { setMsg('Sem conexão. Tente de novo.'); }
-    setEnviando(false);
-  }
-  return (
-    <div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: '0 0 6px', fontSize: 26 }}>Caixa Fácil</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>{modo === 'entrar' ? 'Entre na sua conta' : 'Crie sua conta'}</p>
-      </div>
-      <div className="card">
-        <label className="field-label">E-mail</label>
-        <input type="email" autoComplete="email" placeholder="voce@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label className="field-label">Senha</label>
-        <input type="password" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} placeholder="Mínimo 6 caracteres" value={senha} onChange={(e) => setSenha(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') enviar(); }} />
-        {msg && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '10px 0 0' }}>{msg}</p>}
-      </div>
-      <button className="btn-primary" disabled={enviando} onClick={enviar}>{enviando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}</button>
-      <button className="btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => { setModo(modo === 'entrar' ? 'criar' : 'entrar'); setMsg(''); }}>
-        {modo === 'entrar' ? 'Não tenho conta — criar agora' : 'Já tenho conta — entrar'}
-      </button>
-    </div>
-  );
-}
-
-function Raiz() {
-  const [fase, setFase] = useState('carregando');
-  const [erro, setErro] = useState('');
-  const uidAtual = useRef(null);
-  async function entrar(sessao) {
-    if (uidAtual.current === sessao.user.id) return;
-    uidAtual.current = sessao.user.id;
-    setFase('carregando');
-    try {
-      await carregarDadosRemotos(sessao.user.id);
-      await oferecerImportacaoLocal();
-      setFase('pronto');
-    } catch (e) {
-      console.error(e); uidAtual.current = null;
-      setErro('Não foi possível carregar seus dados. Verifique a internet e tente de novo.'); setFase('erro');
-    }
-  }
-  function aoSair() { uidAtual.current = null; limparSessaoLocal(); setFase('login'); }
-  function iniciar() { sb.auth.getSession().then(({ data }) => { if (data.session) entrar(data.session); else setFase('login'); }); }
-  useEffect(() => {
-    iniciar();
-    const { data: sub } = sb.auth.onAuthStateChange((evento, sessao) => {
-      setTimeout(() => {
-        if (evento === 'SIGNED_OUT') aoSair();
-        else if (sessao && (evento === 'SIGNED_IN' || evento === 'INITIAL_SESSION')) entrar(sessao);
-      }, 0);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-  if (fase === 'pronto') return <App />;
-  if (fase === 'login') return <div className="phone"><TelaLogin /></div>;
-  if (fase === 'erro') return (
-    <div className="phone"><div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh', textAlign: 'center' }}>
-      <p style={{ color: 'var(--danger)' }}>{erro}</p>
-      <button className="btn-primary" onClick={() => { setFase('carregando'); iniciar(); }}>Tentar de novo</button>
-    </div></div>
-  );
-  return <div className="phone"><div className="screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-muted)' }}>Carregando...</div></div>;
-}
-
-function App() {
-  const state = useStore();
-  const [tela, setTela] = useState('inicio');
-  const [toast, setToast] = useState(null);
-  const [editandoId, setEditandoId] = useState(null);
-  function mostrarToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2200); }
-
-  if (!state.perfil) return <div className="phone"><StatusBar /><Onboarding /></div>;
-
-  let conteudo;
-  switch (tela) {
-    case 'inicio': conteudo = <Dashboard irPara={setTela} />; break;
-    case 'lancamentos': conteudo = <Lancamentos onEditar={(id) => { setEditandoId(id); setTela('editar'); }} />; break;
-    case 'editar': conteudo = <EditarLancamento lancamento={state.lancamentos.find((l) => l.id === editandoId)} voltar={() => setTela('lancamentos')} onSalvo={() => { setTela('lancamentos'); mostrarToast('Lançamento atualizado!'); }} />; break;
-    case 'audio': conteudo = <RecordFlow onSalvo={() => { setTela('inicio'); mostrarToast('Lançamento salvo!'); }} onCancelar={() => setTela('inicio')} />; break;
-    case 'contas': conteudo = <Contas />; break;
-    case 'mais': conteudo = <Mais irPara={setTela} />; break;
-    case 'compras': conteudo = <Compras voltar={() => setTela('mais')} onSalvo={() => { setTela('mais'); mostrarToast('Compra registrada!'); }} />; break;
-    case 'precos': conteudo = <Precos voltar={() => setTela('mais')} />; break;
-    case 'fluxocaixa': conteudo = <FluxoCaixa voltar={() => setTela('mais')} />; break;
-    case 'meuscaixas': conteudo = <MeusCaixas voltar={() => setTela('mais')} />; break;
-    case 'conciliacao': conteudo = <Conciliacao voltar={() => setTela('mais')} onToast={mostrarToast} />; break;
-    case 'custosfixos': conteudo = <CustosFixos voltar={() => setTela('mais')} onToast={mostrarToast} />; break;
-    case 'metas': conteudo = <Metas voltar={() => setTela('mais')} />; break;
-    case 'auditoria': conteudo = <Auditoria voltar={() => setTela('mais')} />; break;
-    case 'impostos': conteudo = <Impostos voltar={() => setTela('mais')} />; break;
-    case 'folha': conteudo = <FolhaPagamento voltar={() => setTela('mais')} />; break;
-    case 'relatorios': conteudo = <Relatorios voltar={() => setTela('mais')} />; break;
-    case 'precificacao': conteudo = <Precificacao voltar={() => setTela('mais')} />; break;
-    case 'config': conteudo = <Configuracoes voltar={() => setTela('mais')} />; break;
-    default: conteudo = <Dashboard irPara={setTela} />;
-  }
-
-  return (
-    <div className="phone">
-      <StatusBar />
-      <div className="screen" key={tela} style={{ paddingTop: tela === 'audio' ? 16 : undefined }}>
-        <div className="screen-fade">{conteudo}</div>
-      </div>
-      {tela !== 'audio' && <BottomNav tela={tela} irPara={setTela} />}
-      {toast && <div className="toast"><span className="toast-check">✓</span>{toast}</div>}
-    </div>
-  );
-}
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<Raiz />);
-</script>
-</body>
-</html>
-
-</body></html>
+      <div cla
