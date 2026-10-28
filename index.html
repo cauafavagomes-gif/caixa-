@@ -327,7 +327,7 @@ function criarReconhecimento({ onResultadoParcial, onResultadoFinal, onErro, onF
 const STORAGE_KEY = 'caixa_facil_v1';
 function seedState() {
   return {
-    perfil: null, lancamentos: [], contas: [], metas: { faturamento: 0, lucro: 0 }, compras: [], custosFixos: [], auditoria: [],
+    perfil: null, lancamentos: [], contas: [], metas: { faturamento: 0, lucro: 0 }, compras: [], custosFixos: [], auditoria: [], produtos: [], movimentosEstoque: [],
     caixas: [{ id: 'principal', nome: 'Caixa da loja', tipo: 'dinheiro' }],
     funcionarios: [],
   };
@@ -396,6 +396,8 @@ async function enviarDiferencas(prev, next, lojaId) {
     ['lancamentos', 'lancamentos', (l) => ({ id: l.id, loja_id: lojaId, caixa_id: l.caixaId || null, data: l.data, hora: l.hora || null, tipo: l.tipo, categoria: l.categoria || null, descricao: l.descricao || '', forma_pagamento: l.formaPagamento || null, valor: Number(l.valor) || 0, origem: l.origem || 'manual', observacoes: l.observacoes || '', conciliado_em: l.conciliadoEm || null, criado_em: l.criadoEm || new Date().toISOString(), editado_em: l.editadoEm || null })],
     ['contas', 'contas', (c) => ({ id: c.id, loja_id: lojaId, descricao: c.descricao || '', valor: Number(c.valor) || 0, vencimento: c.vencimento, tipo: c.tipo, status: c.status || 'Pendente', recorrente: !!c.recorrente, cliente_nome: c.clienteNome || '', aprovado_por: c.aprovadoPor || null, aprovado_em: c.aprovadoEm || null })],
     ['custosFixos', 'custos_fixos', (c) => ({ id: c.id, loja_id: lojaId, categoria: c.categoria || null, descricao: c.descricao || '', valor: Number(c.valor) || 0, dia_vencimento: c.diaVencimento || null, chave_pix: c.chavePix || '', ultimo_mes_lancado: c.ultimoMesLancado || null })],
+    ['produtos', 'produtos', (p) => ({ id: p.id, loja_id: lojaId, nome: p.nome, unidade: p.unidade || 'unidade', minimo: Number(p.minimo) || 0, criado_em: p.criadoEm || new Date().toISOString() })],
+    ['movimentosEstoque', 'movimentos_estoque', (m) => ({ id: m.id, loja_id: lojaId, produto_id: m.produtoId, tipo: m.tipo, quantidade: Number(m.quantidade) || 0, observacao: m.observacao || '', origem: m.origem || 'manual', criado_em: m.criadoEm || new Date().toISOString() })],
     ['funcionarios', 'funcionarios', (f) => ({ id: f.id, loja_id: lojaId, nome: f.nome, cargo: f.cargo || '', salario_bruto: Number(f.salarioBruto) || 0, data_admissao: f.dataAdmissao || null, valor_vt: Number(f.valorVT) || 0, valor_vr: Number(f.valorVR) || 0, chave_pix: f.chavePix || '' })],
   ];
   const dif = {};
@@ -427,7 +429,7 @@ async function enviarDiferencas(prev, next, lojaId) {
   const audNovas = (next.auditoria || []).filter((a) => !idsAud.has(a.id));
   if (audNovas.length) await upsertEmLotes('auditoria', audNovas.map((a) => ({ id: a.id, loja_id: lojaId, lancamento_id: a.lancamentoId || null, acao: a.acao || '', descricao: a.descricao || null, valor: a.valor ?? null, detalhe: a.detalhe || '', em: a.em || new Date().toISOString() })));
   // exclusões (por último)
-  for (const [chave, tabela] of [['lancamentos', 'lancamentos'], ['contas', 'contas'], ['custosFixos', 'custos_fixos'], ['funcionarios', 'funcionarios'], ['caixas', 'caixas']]) {
+  for (const [chave, tabela] of [['lancamentos', 'lancamentos'], ['contas', 'contas'], ['custosFixos', 'custos_fixos'], ['funcionarios', 'funcionarios'], ['movimentosEstoque', 'movimentos_estoque'], ['produtos', 'produtos'], ['caixas', 'caixas']]) {
     if (dif[chave].removidos.length) await apagarEmLotes(tabela, 'id', dif[chave].removidos);
   }
 }
@@ -480,7 +482,7 @@ async function carregarDadosRemotos(userId) {
     checar(await sb.from('caixas').insert({ loja_id: loja.id, nome: 'Caixa da loja', tipo: 'dinheiro' }));
   }
   const id = loja.id;
-  const [cx, lc, ct, cob, cp, itens, cf, fn, au] = await Promise.all([
+  const [cx, lc, ct, cob, cp, itens, cf, fn, au, pr, mv] = await Promise.all([
     buscarTudo('caixas', id, [['criado_em', true], ['id', true]]),
     buscarTudo('lancamentos', id, [['criado_em', false], ['id', false]]),
     buscarTudo('contas', id, [['criado_em', true], ['id', true]]),
@@ -490,6 +492,8 @@ async function carregarDadosRemotos(userId) {
     buscarTudo('custos_fixos', id, [['criado_em', true], ['id', true]]),
     buscarTudo('funcionarios', id, [['criado_em', true], ['id', true]]),
     sb.from('auditoria').select('*').eq('loja_id', id).order('em', { ascending: false }).limit(500).then((r) => { if (r.error) throw r.error; return r.data; }),
+    buscarTudo('produtos', id, [['criado_em', true], ['id', true]]).catch(() => []),
+    buscarTudo('movimentos_estoque', id, [['criado_em', false], ['id', false]]).catch(() => []),
   ]);
   const cobPorConta = {}; cob.forEach((x) => { (cobPorConta[x.conta_id] = cobPorConta[x.conta_id] || []).push(x.enviada_em); });
   const itensPorCompra = {}; itens.forEach((x) => { (itensPorCompra[x.compra_id] = itensPorCompra[x.compra_id] || []).push({ produto: x.produto, categoria: x.categoria || '', quantidade: num(x.quantidade), valorUnitario: num(x.valor_unitario), valorTotal: num(x.valor_total) }); });
@@ -503,6 +507,8 @@ async function carregarDadosRemotos(userId) {
     compras: cp.map((c) => ({ id: c.id, data: c.data, fornecedor: c.fornecedor, formaPagamento: c.forma_pagamento || '', fotoDataUrl: c.foto_url || null, itens: itensPorCompra[c.id] || [] })),
     custosFixos: cf.map((c) => ({ id: c.id, categoria: c.categoria || '', descricao: c.descricao, valor: num(c.valor), diaVencimento: c.dia_vencimento, chavePix: c.chave_pix || '', ultimoMesLancado: c.ultimo_mes_lancado })),
     funcionarios: fn.map((f) => ({ id: f.id, nome: f.nome, cargo: f.cargo || '', salarioBruto: num(f.salario_bruto), dataAdmissao: f.data_admissao || '', valorVT: num(f.valor_vt), valorVR: num(f.valor_vr), chavePix: f.chave_pix || '' })),
+    produtos: pr.map((x) => ({ id: x.id, nome: x.nome, unidade: x.unidade || 'unidade', minimo: num(x.minimo), criadoEm: x.criado_em })),
+    movimentosEstoque: mv.map((x) => ({ id: x.id, produtoId: x.produto_id, tipo: x.tipo, quantidade: num(x.quantidade), observacao: x.observacao || '', origem: x.origem || 'manual', criadoEm: x.criado_em })),
     auditoria: au.map((a) => ({ id: a.id, em: a.em, acao: a.acao, lancamentoId: a.lancamento_id, descricao: a.descricao, valor: a.valor == null ? a.valor : Number(a.valor), detalhe: a.detalhe || '' })),
   };
   if (!novo.caixas.length) novo.caixas = [{ id: uid(), nome: 'Caixa da loja', tipo: 'dinheiro' }];
@@ -529,6 +535,8 @@ function remapIds(d) {
     compras: (d.compras || []).map((c) => ({ ...c, id: nid(c.id) })),
     custosFixos: (d.custosFixos || []).map((c) => ({ ...c, id: nid(c.id) })),
     funcionarios: (d.funcionarios || []).map((f) => ({ ...f, id: nid(f.id) })),
+    produtos: (d.produtos || []).map((x) => ({ ...x, id: nid(x.id) })),
+    movimentosEstoque: (d.movimentosEstoque || []).map((x) => ({ ...x, id: nid(x.id), produtoId: nid(x.produtoId) })),
     auditoria: (d.auditoria || []).map((a) => ({ ...a, id: nid(a.id), lancamentoId: nid(a.lancamentoId) })),
   };
   if (!r.caixas.length) r.caixas = [{ id: uid(), nome: 'Caixa da loja', tipo: 'dinheiro' }];
@@ -662,6 +670,54 @@ const actions = {
     setState((s) => ({ ...s, custosFixos: [...s.custosFixos, item] }));
   },
   removeCustoFixo(id) { setState((s) => ({ ...s, custosFixos: s.custosFixos.filter((c) => c.id !== id) })); },
+  addProduto({ nome, unidade, minimo, saldoInicial }) {
+    const item = { id: uid(), nome: nome.trim(), unidade: unidade || 'unidade', minimo: Number(minimo) || 0, criadoEm: agoraISO() };
+    const q = Number(saldoInicial) || 0;
+    setState((s) => ({
+      ...s,
+      produtos: [...s.produtos, item],
+      movimentosEstoque: q ? [{ id: uid(), produtoId: item.id, tipo: 'entrada', quantidade: q, observacao: 'Saldo inicial', origem: 'manual', criadoEm: agoraISO() }, ...s.movimentosEstoque] : s.movimentosEstoque,
+    }));
+    return item;
+  },
+  updateProduto(id, patch) { setState((s) => ({ ...s, produtos: s.produtos.map((p) => (p.id === id ? { ...p, ...patch } : p)) })); },
+  removeProduto(id) {
+    setState((s) => ({ ...s, produtos: s.produtos.filter((p) => p.id !== id), movimentosEstoque: s.movimentosEstoque.filter((m) => m.produtoId !== id) }));
+  },
+  movimentarEstoque(itens, origem) {
+    setState((s) => {
+      let produtos = s.produtos;
+      const criados = new Map();
+      const movs = [];
+      const agora = agoraISO();
+      itens.forEach((it) => {
+        const q = Math.abs(Number(it.quantidade) || 0);
+        if (!q) return;
+        let pid = it.produtoId;
+        if (!pid) {
+          const chave = semAcento(it.nome || '').trim();
+          if (!chave) return;
+          if (!criados.has(chave)) {
+            const novo = { id: uid(), nome: it.nome.trim(), unidade: it.unidade || 'unidade', minimo: 0, criadoEm: agora };
+            criados.set(chave, novo.id);
+            produtos = [...produtos, novo];
+          }
+          pid = criados.get(chave);
+        }
+        movs.push({ id: uid(), produtoId: pid, tipo: it.tipo, quantidade: it.tipo === 'saida' ? -q : q, observacao: it.observacao || '', origem: origem || 'manual', criadoEm: agora });
+      });
+      return { ...s, produtos, movimentosEstoque: [...movs.reverse(), ...s.movimentosEstoque] };
+    });
+  },
+  ajustarEstoque(produtoId, contado) {
+    setState((s) => {
+      const atual = s.movimentosEstoque.filter((m) => m.produtoId === produtoId).reduce((a, m) => a + Number(m.quantidade), 0);
+      const delta = Math.round((Number(contado) - atual) * 1000) / 1000;
+      if (!delta) return s;
+      return { ...s, movimentosEstoque: [{ id: uid(), produtoId, tipo: 'ajuste', quantidade: delta, observacao: 'Contagem do estoque', origem: 'manual', criadoEm: agoraISO() }, ...s.movimentosEstoque] };
+    });
+  },
+  removeMovimentoEstoque(id) { setState((s) => ({ ...s, movimentosEstoque: s.movimentosEstoque.filter((m) => m.id !== id) })); },
   lancarCustosFixosDoMes(caixaId) {
     const mesAtual = hojeISO().slice(0, 7);
     let lancados = 0;
@@ -1786,6 +1842,7 @@ function Mais({ irPara }) {
   return (
     <div>
       <div className="topbar" style={{ padding: 0, marginBottom: 12 }}><h1>Mais</h1><div className="sub">Compras, metas e configurações</div></div>
+      {item('estoque', '📦', 'Estoque', 'Fardos e produtos: diga o que chegou e o que saiu, e veja quanto resta')}
       {item('meuscaixas', '🏦', 'Meus caixas', 'Dinheiro da loja, conta PJ e outros — saldo por caixa')}
       {item('conciliacao', '🔄', 'Conciliação bancária', 'Importe o extrato do banco e confira com seus lançamentos')}
       {item('fluxocaixa', '🔮', 'Fluxo de caixa projetado', 'Saldo previsto para os próximos dias, com contas e custos fixos')}
@@ -1799,6 +1856,289 @@ function Mais({ irPara }) {
       {item('precificacao', '🏷️', 'Sugestão de preço', 'Custo do insumo + margem desejada = preço de venda')}
       {item('auditoria', '🕒', 'Histórico de alterações', 'Veja o que foi criado, editado e excluído')}
       {item('config', '⚙️', 'Configurações', 'Dados do seu negócio e alertas de preço')}
+    </div>
+  );
+}
+
+/* ================= estoque ================= */
+const NUM_PALAVRAS = { zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, treze: 13, quatorze: 14, catorze: 14, quinze: 15, dezesseis: 16, dezessete: 17, dezoito: 18, dezenove: 19, vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, sessenta: 60, setenta: 70, oitenta: 80, noventa: 90, cem: 100, cento: 100 };
+const VERBOS_ENTRADA = ['chegar', 'chegou', 'chegaram', 'chegada', 'chegando', 'recebi', 'recebemos', 'entrou', 'entraram', 'entrada', 'comprei', 'compramos', 'repus', 'adicionei', 'adicione', 'adicionar', 'acrescente', 'acrescentei', 'somar'];
+const VERBOS_SAIDA = ['saiu', 'sairam', 'saida', 'vendi', 'vendeu', 'vendemos', 'venderam', 'tirei', 'retirei', 'tire', 'retire', 'perdi', 'quebrou', 'quebraram', 'usei', 'usamos', 'baixa', 'baixei', 'diminua', 'diminuir', 'consumi', 'sumiu', 'venceu'];
+const UNIDADES_ESTOQUE_RE = 'fardos?|caixas?|pacotes?|unidades?|sacos?|litros?|kg|garrafas?|latas?|potes?|duzias?';
+const UNIDADES_OPCOES = ['fardo', 'caixa', 'pacote', 'unidade', 'saco', 'litro', 'kg'];
+function semAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function numerosPorExtenso(t) {
+  t = t.replace(/\b(vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa)\s+e\s+(um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove)\b/g, (m, a, b) => String(NUM_PALAVRAS[a] + NUM_PALAVRAS[b]));
+  return t.replace(/\b(zero|uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|quatorze|catorze|quinze|dezesseis|dezessete|dezoito|dezenove|vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa|cem|cento)\b/g, (m) => String(NUM_PALAVRAS[m]));
+}
+function singularUnidade(u) { u = semAcento(u); if (u === 'kg') return 'kg'; if (u === 'duzias' || u === 'duzia') return 'dúzia'; return u.replace(/s$/, ''); }
+function normalizarNomeProduto(n) { return semAcento(n).split(/\s+/).filter(Boolean).map((w) => (w.length > 3 ? w.replace(/s$/, '') : w)).join(' '); }
+function acharProduto(nome, produtos) {
+  const alvo = normalizarNomeProduto(nome);
+  if (!alvo) return null;
+  let melhor = null, melhorScore = 0;
+  produtos.forEach((p) => {
+    const pn = normalizarNomeProduto(p.nome);
+    let score = 0;
+    if (pn === alvo) score = 1;
+    else if (pn.includes(alvo) || alvo.includes(pn)) score = 0.8;
+    else {
+      const a = new Set(alvo.split(' ')), b = pn.split(' ');
+      const comum = b.filter((w) => a.has(w) && w.length > 2).length;
+      if (comum) score = 0.6 * (comum / Math.max(a.size, b.length)) + 0.2;
+    }
+    if (score > melhorScore) { melhorScore = score; melhor = p; }
+  });
+  return melhorScore >= 0.6 ? melhor : null;
+}
+function interpretarEstoque(textoOriginal, produtos) {
+  let t = numerosPorExtenso(semAcento(textoOriginal)).replace(/(\d),(\d)/g, '$1.$2');
+  const verbos = [];
+  const achar = (lista, tipo) => lista.forEach((v) => { const re = new RegExp('\\b' + v + '\\b', 'g'); let m; while ((m = re.exec(t))) verbos.push({ i: m.index, tipo, palavra: v }); });
+  achar(VERBOS_ENTRADA, 'entrada'); achar(VERBOS_SAIDA, 'saida');
+  verbos.sort((a, b) => a.i - b.i);
+  const todosVerbos = VERBOS_ENTRADA.concat(VERBOS_SAIDA).join('|');
+  const reVerbos = new RegExp('\\b(' + todosVerbos + ')\\b', 'g');
+  const numeros = [...t.matchAll(/\d+(?:\.\d+)?/g)].map((m) => ({ i: m.index, len: m[0].length, valor: parseFloat(m[0]) }));
+  const limpar = (txt) => {
+    let x = ' ' + txt.replace(reVerbos, ' ') + ' ';
+    x = x.replace(/\bacabou de\b/g, ' ').replace(/\b(no|na) estoque\b/g, ' ').replace(/\b(hoje|ontem|agora|ja)\b/g, ' ');
+    x = x.replace(/[,.;]+/g, ' ').replace(/\s+/g, ' ').trim();
+    let unidade = null;
+    const mu = x.match(new RegExp('^(' + UNIDADES_ESTOQUE_RE + ')\\b\\s*'));
+    if (mu) { unidade = singularUnidade(mu[1]); x = x.slice(mu[0].length); }
+    x = x.replace(/^(de|do|da|dos|das|d[eo]s?)\s+/, '').replace(/\s+(e|mais|com)$/, '').replace(/^(e|mais|com)\s+/, '').trim();
+    return { nome: x, unidade };
+  };
+  const itens = numeros.map((n, k) => {
+    const fim = k + 1 < numeros.length ? numeros[k + 1].i : t.length;
+    const depois = t.slice(n.i + n.len, fim);
+    let { nome, unidade } = limpar(depois);
+    if (!nome && k === 0) { const pre = limpar(t.slice(0, n.i)); nome = pre.nome; unidade = unidade || pre.unidade; }
+    if (!nome && unidade) nome = unidade;
+    const antes = verbos.filter((v) => v.i < n.i);
+    const verbo = antes.length ? antes[antes.length - 1] : verbos.find((v) => v.i >= n.i && v.i < fim) || null;
+    const prod = acharProduto(nome, produtos);
+    return {
+      tipo: verbo ? verbo.tipo : null,
+      quantidade: n.valor,
+      nome: prod ? prod.nome : nome.replace(/\b\w/g, (c) => c.toUpperCase()),
+      produtoId: prod ? prod.id : '',
+      unidade: prod ? prod.unidade : (unidade || 'unidade'),
+    };
+  });
+  return { itens: itens.filter((i) => i.quantidade > 0) };
+}
+function saldosEstoque(produtos, movs) {
+  const m = {};
+  produtos.forEach((p) => { m[p.id] = 0; });
+  movs.forEach((x) => { m[x.produtoId] = Math.round(((m[x.produtoId] || 0) + Number(x.quantidade)) * 1000) / 1000; });
+  return m;
+}
+function formatQtd(n) { return Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 }); }
+function rotuloUnidade(un, q) {
+  const u = un || 'unidade';
+  if (u === 'kg' || Math.abs(q) === 1) return u;
+  return u + 's';
+}
+
+function Estoque({ voltar, onToast }) {
+  const state = useStore();
+  const saldos = useMemo(() => saldosEstoque(state.produtos, state.movimentosEstoque), [state.produtos, state.movimentosEstoque]);
+  const [texto, setTexto] = useState('');
+  const [interim, setInterim] = useState('');
+  const [gravando, setGravando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [itens, setItens] = useState(null);
+  const [abertoId, setAbertoId] = useState(null);
+  const [rapido, setRapido] = useState({});
+  const [novo, setNovo] = useState(null);
+  const [contagem, setContagem] = useState('');
+  const recRef = useRef(null);
+  const usouVoz = useRef(false);
+  const suportado = !!speechRecognitionDisponivel();
+
+  useEffect(() => {
+    if (!suportado) return;
+    recRef.current = criarReconhecimento({
+      onResultadoParcial: (parcial) => setInterim(parcial),
+      onResultadoFinal: (final) => { setInterim(''); setTexto((atual) => (atual ? atual + ' ' : '') + final); },
+      onErro: (e) => { if (e === 'no-speech') return; setErro('Não consegui acessar o microfone. Digite no campo abaixo.'); setGravando(false); },
+      onFim: () => setGravando(false),
+    });
+    return () => { try { recRef.current && recRef.current.stop(); } catch {} };
+  }, []);
+
+  function iniciar() {
+    setErro(''); setInterim('');
+    if (!recRef.current) { setErro('Seu navegador não tem reconhecimento de voz. Digite no campo abaixo.'); return; }
+    try { recRef.current.start(); setGravando(true); usouVoz.current = true; } catch { setErro('Não foi possível iniciar o microfone.'); }
+  }
+  function parar() { try { recRef.current && recRef.current.stop(); } catch {} setGravando(false); }
+  function interpretar() {
+    parar();
+    const r = interpretarEstoque((texto + ' ' + interim).trim(), state.produtos);
+    if (!r.itens.length) { setErro('Não encontrei a quantidade. Diga, por exemplo: "chegaram 10 fardos de coca".'); return; }
+    setErro('');
+    setItens(r.itens.map((i) => ({ ...i, key: uid(), quantidade: String(i.quantidade) })));
+  }
+  function mudarItem(key, patch) { setItens((lista) => lista.map((i) => (i.key === key ? { ...i, ...patch } : i))); }
+  const itensValidos = itens && itens.length > 0 && itens.every((i) => i.tipo && Number(i.quantidade) > 0 && (i.produtoId || i.nome.trim()));
+  function salvarItens() {
+    actions.movimentarEstoque(itens.map((i) => ({ produtoId: i.produtoId, nome: i.nome, unidade: i.unidade, tipo: i.tipo, quantidade: Number(i.quantidade) })), usouVoz.current ? 'voz' : 'texto');
+    setItens(null); setTexto(''); setInterim(''); usouVoz.current = false;
+    onToast && onToast('Estoque atualizado!');
+  }
+  function movimentoRapido(p, tipo) {
+    const q = Number(rapido[p.id] ?? 1);
+    if (!(q > 0)) return;
+    actions.movimentarEstoque([{ produtoId: p.id, tipo, quantidade: q }], 'manual');
+  }
+  function salvarNovo() {
+    if (!novo.nome.trim()) return;
+    actions.addProduto(novo);
+    setNovo(null);
+    onToast && onToast('Produto cadastrado!');
+  }
+
+  const cabecalho = (titulo, aoVoltar) => (
+    <div className="row" style={{ marginBottom: 10 }}><button className="close-x" onClick={aoVoltar}>←</button><h1 style={{ fontSize: 17, margin: 0 }}>{titulo}</h1><div style={{ width: 28 }} /></div>
+  );
+
+  if (itens) {
+    return (
+      <div>
+        {cabecalho('Confirme o estoque', () => setItens(null))}
+        <div className="alert-box" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+          Confira o que entendi. Você pode corrigir produto, quantidade e se foi entrada ou saída.
+        </div>
+        {itens.map((i) => {
+          const saldo = i.produtoId ? (saldos[i.produtoId] || 0) : 0;
+          const prod = state.produtos.find((p) => p.id === i.produtoId);
+          return (
+            <div className="card" key={i.key}>
+              <div className="row" style={{ marginBottom: 8 }}>
+                <div className="chip-row">{[['entrada', 'Entrada'], ['saida', 'Saída']].map(([v, r]) => <button key={v} className={`pill ${i.tipo === v ? (v === 'saida' ? 'selected danger' : 'selected') : ''}`} onClick={() => mudarItem(i.key, { tipo: v })}>{r}</button>)}</div>
+                <button className="close-x" aria-label="Remover item" onClick={() => setItens((l) => l.filter((x) => x.key !== i.key))}>✕</button>
+              </div>
+              {!i.tipo && <div style={{ color: 'var(--warning)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Não entendi se foi entrada ou saída. Escolha acima.</div>}
+              <label className="field-label">Produto</label>
+              <select value={i.produtoId} onChange={(e) => { const p = state.produtos.find((x) => x.id === e.target.value); mudarItem(i.key, p ? { produtoId: p.id, nome: p.nome, unidade: p.unidade } : { produtoId: '' }); }}>
+                {state.produtos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                <option value="">➕ Novo produto</option>
+              </select>
+              {!i.produtoId && (
+                <div style={{ marginTop: 10 }}>
+                  <label className="field-label">Nome do novo produto</label>
+                  <input type="text" value={i.nome} onChange={(e) => mudarItem(i.key, { nome: e.target.value })} placeholder="Ex.: Coca-Cola 2L" />
+                  <label className="field-label">Unidade</label>
+                  <div className="chip-row">{UNIDADES_OPCOES.map((u) => <button key={u} className={`pill ${i.unidade === u ? 'selected' : ''}`} onClick={() => mudarItem(i.key, { unidade: u })}>{u}</button>)}</div>
+                </div>
+              )}
+              <label className="field-label">Quantidade ({rotuloUnidade(i.unidade, Number(i.quantidade))})</label>
+              <input type="number" inputMode="decimal" step="any" min="0" value={i.quantidade} onChange={(e) => mudarItem(i.key, { quantidade: e.target.value })} />
+              {i.tipo === 'saida' && prod && Number(i.quantidade) > saldo && <div className="alert-box danger" style={{ marginTop: 10, marginBottom: 0 }}>Você só tem {formatQtd(saldo)} {rotuloUnidade(prod.unidade, saldo)} em estoque.</div>}
+            </div>
+          );
+        })}
+        <button className="btn-primary" disabled={!itensValidos} onClick={salvarItens}>Salvar no estoque</button>
+        <button className="btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => setItens(null)}>Cancelar</button>
+      </div>
+    );
+  }
+
+  if (novo) {
+    return (
+      <div>
+        {cabecalho('Novo produto', () => setNovo(null))}
+        <div className="card">
+          <label className="field-label">Nome</label>
+          <input type="text" value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} placeholder="Ex.: Água mineral 500ml" />
+          <label className="field-label">Unidade de contagem</label>
+          <div className="chip-row">{UNIDADES_OPCOES.map((u) => <button key={u} className={`pill ${novo.unidade === u ? 'selected' : ''}`} onClick={() => setNovo({ ...novo, unidade: u })}>{u}</button>)}</div>
+          <label className="field-label">Quantidade que você tem agora</label>
+          <input type="number" inputMode="decimal" step="any" min="0" value={novo.saldoInicial} onChange={(e) => setNovo({ ...novo, saldoInicial: e.target.value })} placeholder="0" />
+          <label className="field-label">Avisar quando restar até (opcional)</label>
+          <input type="number" inputMode="decimal" step="any" min="0" value={novo.minimo} onChange={(e) => setNovo({ ...novo, minimo: e.target.value })} placeholder="Ex.: 3" />
+        </div>
+        <button className="btn-primary" disabled={!novo.nome.trim()} onClick={salvarNovo}>Cadastrar produto</button>
+      </div>
+    );
+  }
+
+  const baixos = state.produtos.filter((p) => p.minimo > 0 && (saldos[p.id] || 0) <= p.minimo);
+  return (
+    <div>
+      {cabecalho('Estoque', voltar)}
+      <div className="card">
+        <h3>Lançar por voz ou texto</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className={`mic-btn ${gravando ? 'recording' : ''}`} style={{ width: 64, height: 64, fontSize: 26, flexShrink: 0 }} onClick={gravando ? parar : iniciar} aria-label={gravando ? 'Parar gravação' : 'Falar'}><NavIcon name="mic" size={26} /></button>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{gravando ? 'Estou ouvindo... fale e toque de novo para parar.' : suportado ? 'Toque e fale, ou digite abaixo.' : 'Digite abaixo o que chegou ou saiu.'}</div>
+        </div>
+        <input type="text" style={{ marginTop: 12 }} value={texto + (interim ? ' ' + interim : '')} onChange={(e) => { setTexto(e.target.value); setInterim(''); }} placeholder='Ex.: chegaram 10 fardos de coca' onKeyDown={(e) => { if (e.key === 'Enter' && (texto || interim)) interpretar(); }} />
+        {erro && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '8px 0 0' }}>{erro}</p>}
+        <button className="btn-primary" style={{ marginTop: 12 }} disabled={!(texto.trim() || interim)} onClick={interpretar}>Interpretar</button>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Exemplos: "chegaram 20 fardos de água", "saiu 3 fardos de coca", "chegou 10 de coca e 5 de guaraná".</div>
+      </div>
+
+      {baixos.length > 0 && <div className="alert-box">⚠️ Estoque baixo: {baixos.map((p) => p.nome).join(', ')}.</div>}
+
+      {state.produtos.length === 0 && <div className="card empty-state">Nenhum produto ainda. Diga o que chegou (ex.: "chegaram 10 fardos de coca") ou cadastre um produto.</div>}
+
+      {state.produtos.map((p) => {
+        const saldo = saldos[p.id] || 0;
+        const baixo = p.minimo > 0 && saldo <= p.minimo;
+        const aberto = abertoId === p.id;
+        const historico = state.movimentosEstoque.filter((m) => m.produtoId === p.id).slice(0, 8);
+        return (
+          <div className="card" key={p.id}>
+            <div className="row">
+              <div>
+                <div style={{ fontWeight: 700 }}>{p.nome}</div>
+                {saldo <= 0 ? <span className="badge atrasado">Sem estoque</span> : baixo ? <span className="badge pendente">Estoque baixo</span> : null}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="value" style={{ fontSize: 28, fontWeight: 800 }}>{formatQtd(saldo)}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{rotuloUnidade(p.unidade, saldo)}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12 }}>
+              <button className="btn-secondary" style={{ flex: 1, padding: '10px 8px', minHeight: 44 }} onClick={() => movimentoRapido(p, 'saida')}>− Saída</button>
+              <input type="number" inputMode="decimal" step="any" min="0" aria-label={`Quantidade de ${p.nome}`} value={rapido[p.id] ?? 1} onChange={(e) => setRapido({ ...rapido, [p.id]: e.target.value })} style={{ width: 72, textAlign: 'center' }} />
+              <button className="btn-secondary" style={{ flex: 1, padding: '10px 8px', minHeight: 44 }} onClick={() => movimentoRapido(p, 'entrada')}>+ Entrada</button>
+            </div>
+            <button className="link-btn" style={{ marginTop: 8 }} onClick={() => { setAbertoId(aberto ? null : p.id); setContagem(''); }}>{aberto ? 'Fechar detalhes' : 'Detalhes e histórico'}</button>
+            {aberto && (
+              <div style={{ marginTop: 6, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                <label className="field-label">Avisar quando restar até</label>
+                <input type="number" inputMode="decimal" step="any" min="0" defaultValue={p.minimo || ''} placeholder="0 = não avisar" onBlur={(e) => actions.updateProduto(p.id, { minimo: Number(e.target.value) || 0 })} />
+                <label className="field-label">Contei no estoque (acertar saldo)</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="number" inputMode="decimal" step="any" min="0" value={contagem} onChange={(e) => setContagem(e.target.value)} placeholder="Quanto tem de verdade?" />
+                  <button className="btn-ghost" disabled={contagem === ''} onClick={() => { actions.ajustarEstoque(p.id, Number(contagem)); setContagem(''); onToast && onToast('Saldo acertado!'); }}>Acertar</button>
+                </div>
+                <label className="field-label">Últimas movimentações</label>
+                {historico.length === 0 && <div className="empty-state">Nada registrado ainda.</div>}
+                {historico.map((m) => (
+                  <div className="list-item" key={m.id}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{m.tipo === 'entrada' ? '➕ Entrada' : m.tipo === 'saida' ? '➖ Saída' : '✏️ Ajuste'}{m.observacao ? ' · ' + m.observacao : ''}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{new Date(m.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <strong style={{ color: m.quantidade < 0 ? 'var(--danger)' : 'var(--primary)' }}>{m.quantidade > 0 ? '+' : ''}{formatQtd(m.quantidade)}</strong>
+                      <button className="close-x" aria-label="Desfazer movimentação" title="Desfazer" onClick={() => { if (confirm('Desfazer esta movimentação?')) actions.removeMovimentoEstoque(m.id); }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+                <button className="link-btn" style={{ color: 'var(--danger)', marginTop: 8 }} onClick={() => { if (confirm('Excluir o produto "' + p.nome + '" e todo o histórico dele?')) { actions.removeProduto(p.id); setAbertoId(null); } }}>Excluir produto</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button className="btn-secondary" onClick={() => setNovo({ nome: '', unidade: 'fardo', saldoInicial: '', minimo: '' })}>+ Cadastrar produto</button>
     </div>
   );
 }
@@ -3010,6 +3350,7 @@ function App() {
     case 'compras': conteudo = <Compras voltar={() => setTela('mais')} onSalvo={() => { setTela('mais'); mostrarToast('Compra registrada!'); }} />; break;
     case 'precos': conteudo = <Precos voltar={() => setTela('mais')} />; break;
     case 'fluxocaixa': conteudo = <FluxoCaixa voltar={() => setTela('mais')} />; break;
+    case 'estoque': conteudo = <Estoque voltar={() => setTela('mais')} onToast={mostrarToast} />; break;
     case 'meuscaixas': conteudo = <MeusCaixas voltar={() => setTela('mais')} />; break;
     case 'conciliacao': conteudo = <Conciliacao voltar={() => setTela('mais')} onToast={mostrarToast} />; break;
     case 'custosfixos': conteudo = <CustosFixos voltar={() => setTela('mais')} onToast={mostrarToast} />; break;
